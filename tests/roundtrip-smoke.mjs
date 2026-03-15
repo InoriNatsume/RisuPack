@@ -9,6 +9,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import AdmZip from "adm-zip";
 
 const ROOT = resolve(".");
 const CLI = resolve(ROOT, "dist", "cli", "main.js");
@@ -80,6 +81,9 @@ async function main() {
   await assertLorebookTraversalSafe();
   await assertLorebookExtractionUsesMarkdown();
   await assertTriggerModePolicies();
+  await assertAssetSignatureWinsDeclaredExt();
+  await assertLegacyRisuassetUriSupport();
+  assertZipPreservedEntriesRoundtrip();
 
   const results = [];
   for (const testCase of CASES) {
@@ -337,6 +341,49 @@ function assertZipSlipRejected() {
   if (existsSync(escapedPath)) {
     throw new Error("zip slip으로 작업 폴더 밖 파일이 생성되었습니다.");
   }
+}
+
+function assertZipPreservedEntriesRoundtrip() {
+  const caseRoot = join(WORK_ROOT, "zip-preserved-extra");
+  const inputPath = join(caseRoot, "extra.charx");
+  const extracted = join(caseRoot, "extracted");
+  const rebuilt = join(caseRoot, "rebuilt.charx");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  writeFileSync(
+    inputPath,
+    createStoredZip([
+      {
+        name: "card.json",
+        data: Buffer.from(
+          JSON.stringify({ data: { name: "extra-test" } }, null, 2),
+          "utf-8"
+        )
+      },
+      {
+        name: "x_meta/demo.json",
+        data: Buffer.from('{"meta":true}', "utf-8")
+      },
+      {
+        name: "docs/readme.txt",
+        data: Buffer.from("keep me", "utf-8")
+      }
+    ])
+  );
+
+  runCli(["extract", inputPath, extracted]);
+  runCli(["build", extracted, rebuilt]);
+
+  const rebuiltZip = new AdmZip(readFileSync(rebuilt));
+  const extraEntry = rebuiltZip.getEntry("docs/readme.txt");
+  assertEqual(Boolean(extraEntry), true, "zip preserved entry survives build");
+  assertEqual(
+    extraEntry?.getData().toString("utf-8"),
+    "keep me",
+    "zip preserved entry content"
+  );
 }
 
 function assertBotBuildPathTraversalRejected() {
@@ -611,6 +658,44 @@ async function assertTriggerModePolicies() {
     builtModule.trigger,
     v1ModuleJson.trigger,
     "trigger policy: v1 trigger preserved"
+  );
+}
+
+async function assertAssetSignatureWinsDeclaredExt() {
+  const { detectAssetExtension } = await import(
+    pathToFileURL(resolve(ROOT, "dist", "core", "assets.js")).href
+  );
+  const fakePng = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00
+  ]);
+  assertEqual(
+    detectAssetExtension(fakePng, "jpg"),
+    "png",
+    "asset extension detection prefers signature"
+  );
+}
+
+async function assertLegacyRisuassetUriSupport() {
+  const { readCardAssetDisplayMap } = await import(
+    pathToFileURL(resolve(ROOT, "dist", "formats", "bot", "shared.js")).href
+  );
+  const card = {
+    data: {
+      assets: [
+        {
+          name: "legacy asset",
+          uri: "~risuasset:abc123:png",
+          ext: "png",
+          type: "icon"
+        }
+      ]
+    }
+  };
+  const displayMap = readCardAssetDisplayMap(card);
+  assertEqual(
+    displayMap.get("assets/abc123.png")?.name,
+    "legacy asset",
+    "legacy risuasset hash:ext maps to display metadata"
   );
 }
 

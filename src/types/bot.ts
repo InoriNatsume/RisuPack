@@ -35,6 +35,7 @@ export interface BotMeta {
   assets: string[];
   botAssets?: BotAssetRecord[];
   xMetaFiles: string[];
+  preservedZipFiles?: string[];
   embeddedModuleProjectDir?: string;
   preservedModuleFile?: string;
   preservedContainerPrefixFile?: string;

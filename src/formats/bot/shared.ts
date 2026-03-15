@@ -117,16 +117,19 @@ export function readCardAssetDisplayMap(
     }
     const record = asset as Record<string, unknown>;
     const uri = asString(record.uri);
-    const resolvedPath = resolveZipAssetPathFromUri(uri);
-    if (!resolvedPath) {
+    const resolvedPaths = resolveZipAssetPathsFromUri(uri);
+    if (resolvedPaths.length === 0) {
       continue;
     }
 
-    result.set(resolvedPath, {
-      name: asString(record.name) || fileNameFromPath(resolvedPath) || "asset",
-      declaredExt: asOptionalString(record.ext),
-      mediaKind: toMediaKind(record.type)
-    });
+    for (const resolvedPath of resolvedPaths) {
+      result.set(resolvedPath, {
+        name:
+          asString(record.name) || fileNameFromPath(resolvedPath) || "asset",
+        declaredExt: asOptionalString(record.ext),
+        mediaKind: toMediaKind(record.type)
+      });
+    }
   }
 
   const risuExt = ((data.extensions as Record<string, unknown> | undefined)
@@ -139,15 +142,16 @@ export function readCardAssetDisplayMap(
     if (!Array.isArray(item) || item.length < 2) {
       continue;
     }
-    const resolvedPath = resolveZipAssetPathFromUri(asString(item[1]));
-    if (!resolvedPath || result.has(resolvedPath)) {
-      continue;
+    for (const resolvedPath of resolveZipAssetPathsFromUri(asString(item[1]))) {
+      if (result.has(resolvedPath)) {
+        continue;
+      }
+      result.set(resolvedPath, {
+        name: asString(item[0]) || fileNameFromPath(resolvedPath) || "asset",
+        declaredExt: asOptionalString(item[2]),
+        mediaKind: "image"
+      });
     }
-    result.set(resolvedPath, {
-      name: asString(item[0]) || fileNameFromPath(resolvedPath) || "asset",
-      declaredExt: asOptionalString(item[2]),
-      mediaKind: "image"
-    });
   }
 
   const emotions = Array.isArray(risuExt.emotions)
@@ -157,15 +161,16 @@ export function readCardAssetDisplayMap(
     if (!Array.isArray(item) || item.length < 2) {
       continue;
     }
-    const resolvedPath = resolveZipAssetPathFromUri(asString(item[1]));
-    if (!resolvedPath || result.has(resolvedPath)) {
-      continue;
+    for (const resolvedPath of resolveZipAssetPathsFromUri(asString(item[1]))) {
+      if (result.has(resolvedPath)) {
+        continue;
+      }
+      result.set(resolvedPath, {
+        name: asString(item[0]) || fileNameFromPath(resolvedPath) || "asset",
+        declaredExt: "png",
+        mediaKind: "image"
+      });
     }
-    result.set(resolvedPath, {
-      name: asString(item[0]) || fileNameFromPath(resolvedPath) || "asset",
-      declaredExt: "png",
-      mediaKind: "image"
-    });
   }
 
   return result;
@@ -185,29 +190,54 @@ function asOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
 }
 
-function resolveZipAssetPathFromUri(uri: string): string | null {
+export function resolveZipAssetPathsFromUri(uri: string): string[] {
   if (!uri || uri.startsWith("ccdefault:") || uri.startsWith("__asset:")) {
-    return null;
+    return [];
   }
 
   if (uri.startsWith("embeded://")) {
-    return normalizeAssetSourcePath(uri.replace("embeded://", ""));
+    return [normalizeAssetSourcePath(uri.replace("embeded://", ""))];
   }
 
   if (uri.startsWith("~risuasset:")) {
     const key = uri.replace("~risuasset:", "");
     if (key.includes("/")) {
-      return normalizeAssetSourcePath(key);
+      const normalizedPath = normalizeAssetSourcePath(key);
+      const withoutAssets = normalizedPath.replace(/^assets\//, "");
+      return uniquePaths([normalizedPath, withoutAssets]);
     }
-    return null;
+
+    const [hash, ext] = key.split(":");
+    if (!hash) {
+      return [];
+    }
+
+    const normalizedExt =
+      typeof ext === "string" && ext
+        ? ext.replace(/^\./, "").toLowerCase()
+        : "";
+    const candidates = [
+      normalizeAssetSourcePath(hash),
+      hash,
+      normalizedExt ? normalizeAssetSourcePath(`${hash}.${normalizedExt}`) : "",
+      normalizedExt ? `${hash}.${normalizedExt}` : ""
+    ].filter(Boolean);
+    return uniquePaths(candidates);
   }
 
-  return normalizeAssetSourcePath(uri);
+  return uniquePaths([
+    normalizeAssetSourcePath(uri),
+    normalizeAssetSourcePath(fileNameFromPath(uri))
+  ]);
 }
 
 function normalizeAssetSourcePath(sourcePath: string): string {
   const normalized = sourcePath.replace(/\\/g, "/").replace(/^\/+/, "");
   return normalized.startsWith("assets/") ? normalized : `assets/${normalized}`;
+}
+
+function uniquePaths(value: string[]): string[] {
+  return Array.from(new Set(value.map((item) => item.replace(/\\/g, "/"))));
 }
 
 function fileNameFromPath(value: string): string {

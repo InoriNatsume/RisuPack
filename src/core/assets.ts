@@ -76,9 +76,6 @@ export function detectAssetExtension(
   declaredExt?: string
 ): string {
   const normalizedDeclared = normalizeExtension(declaredExt);
-  if (normalizedDeclared && KNOWN_EXTENSIONS.has(normalizedDeclared)) {
-    return normalizedDeclared;
-  }
 
   if (bytes.length >= 8 && bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
     return "png";
@@ -148,6 +145,10 @@ export function detectAssetExtension(
     bytes[3] === 0xa3
   ) {
     return "webm";
+  }
+
+  if (normalizedDeclared && KNOWN_EXTENSIONS.has(normalizedDeclared)) {
+    return normalizedDeclared;
   }
 
   return normalizedDeclared ?? "bin";

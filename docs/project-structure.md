@@ -184,7 +184,8 @@ my-bot/
 │     ├─ src/
 │     │  ├─ lorebook/
 │     │  ├─ regex/
-│     │  └─ trigger.lua
+│     │  ├─ trigger.lua | trigger.json | trigger.unsupported.txt
+│     │  └─ styles/
 │     ├─ pack/
 │     └─ assets/
 ├─ pack/
@@ -246,7 +247,7 @@ my-module/
 │  ├─ regex/
 │  │  ├─ some-regex.json
 │  │  └─ ...
-│  ├─ trigger.lua
+│  ├─ trigger.lua | trigger.json | trigger.unsupported.txt
 │  ├─ styles/
 │  └─ ...
 ├─ pack/
@@ -255,6 +256,7 @@ my-module/
 │  ├─ module.meta.json
 │  ├─ lorebook.meta.json
 │  ├─ regex.meta.json
+│  ├─ trigger.meta.json
 │  └─ dist/
 │     └─ module.json
 ├─ assets/
@@ -295,7 +297,11 @@ my-module/
 - 로어북 엔트리는 기본적으로 모두 `.md`로 분해합니다.
 - 즉 내용이 `return`으로 시작하거나 `<style>`을 포함해도 로어북 엔트리를 `.lua`나 `.css`로 자동 추측하지 않습니다.
 - 정규식은 `src/regex/*.json`으로 개별 분해하고 `pack/regex.meta.json`으로 다시 조립합니다.
-- 여러 `triggerlua`가 있으면 각각의 원래 위치를 보존해서 다시 연결합니다.
+- 트리거는 RisuAI UI 모드 기준으로 분해합니다.
+- Lua 모드는 `src/trigger.lua`
+- V2 모드는 `src/trigger.json`
+- V1은 현재 source 편집 비지원이라 `src/trigger.unsupported.txt`만 만들고 build 때 원본 trigger를 그대로 보존합니다.
+- `pack/trigger.meta.json`은 이 트리거 모드와 재조립 규칙을 기록합니다.
 - `backgroundEmbedding`은 `src/styles/embedding.css`로 별도 분해합니다.
 
 ---

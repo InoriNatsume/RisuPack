@@ -123,7 +123,7 @@ my-bot/
 │     ├─ src/
 │     │  ├─ lorebook/
 │     │  ├─ regex/
-│     │  ├─ trigger.lua
+│     │  ├─ trigger.lua | trigger.json | trigger.unsupported.txt
 │     │  └─ styles/
 │     ├─ pack/
 │     └─ assets/
@@ -169,7 +169,7 @@ my-module/
 │  │  ├─ _root/
 │  │  └─ ...
 │  ├─ regex/
-│  ├─ trigger.lua
+│  ├─ trigger.lua | trigger.json | trigger.unsupported.txt
 │  └─ styles/
 ├─ pack/
 │  ├─ module.json
@@ -177,6 +177,7 @@ my-module/
 │  ├─ module.meta.json
 │  ├─ lorebook.meta.json
 │  ├─ regex.meta.json
+│  ├─ trigger.meta.json
 │  └─ dist/
 ├─ assets/
 └─ dist/
@@ -196,7 +197,10 @@ my-module/
 
 중요:
 
-- `triggerlua`는 `src/trigger*.lua`로 분해합니다.
+- 트리거는 RisuAI 모드 기준으로 분해합니다.
+- Lua 모드면 `src/trigger.lua`
+- V2 모드면 `src/trigger.json`
+- V1이 감지되면 `src/trigger.unsupported.txt`만 만들고 build 때 원본 trigger를 그대로 유지합니다.
 - `backgroundEmbedding`은 `src/styles/embedding.css`로 분해합니다.
 - 로어북 엔트리는 내용이 Lua/CSS처럼 보여도 기본적으로 `src/lorebook/**/*.md`로 분해합니다.
 - 즉 로어북 타입을 내용으로 추측해서 `.lua`나 `.css`로 바꾸지 않습니다.
@@ -234,11 +238,10 @@ extract -> build -> re-extract
 
 - standalone `.risum`과 `.charx` 안 embedded `module.risum`은 같은 파일이 아닐 수 있습니다.
 
-## 참고 문서
+## 프로젝트 문서
 
 - [설계 방향](docs/design-direction.md)
 - [프로젝트 구조](docs/project-structure.md)
-- [RisuToki 기준 편집 범위](docs/risutoki-ui-scope.md)
 
 ## Credits
 

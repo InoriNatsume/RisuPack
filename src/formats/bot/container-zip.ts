@@ -75,6 +75,7 @@ export async function extractZipContainer(
   const assetFiles: string[] = [];
   const botAssets: BotAssetRecord[] = [];
   const xMetaFiles: string[] = [];
+  const preservedZipFiles: string[] = [];
 
   if (preservedModuleEntry) {
     const moduleBytes = preservedModuleEntry.getData();
@@ -136,6 +137,8 @@ export async function extractZipContainer(
       writeFileSync(outPath, entry.getData());
       if (safeEntryPath.startsWith("x_meta/")) {
         xMetaFiles.push(safeEntryPath);
+      } else {
+        preservedZipFiles.push(safeEntryPath);
       }
     }
   }
@@ -150,6 +153,7 @@ export async function extractZipContainer(
       left.path.localeCompare(right.path)
     ),
     xMetaFiles: xMetaFiles.sort(),
+    preservedZipFiles: preservedZipFiles.sort(),
     embeddedModuleProjectDir: preservedModuleEntry
       ? MODULE_PROJECT_DIR
       : undefined,
@@ -229,6 +233,13 @@ export async function buildZipContainer(
       resolveProjectPath(projectDir, join("pack", metaFile))
     );
     zip.addFile(metaFile, data);
+  }
+
+  for (const preservedFile of botMeta.preservedZipFiles ?? []) {
+    const data = readFileSync(
+      resolveProjectPath(projectDir, join("pack", preservedFile))
+    );
+    zip.addFile(preservedFile, data);
   }
 
   const finalOutput =
