@@ -1,0 +1,16 @@
+node_modules/
+dist/
+
+# Local workspace inputs/outputs
+workspace/
+test-artifacts/
+
+# Local reference repositories
+references/
+
+# Legacy local tooling notes to be replaced by OpenAI Skills
+TOOLING.md
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini

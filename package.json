@@ -1,0 +1,27 @@
+{
+  "name": "risu-workspace-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "risu-workspace-tools": "./dist/cli/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write .",
+    "test": "npm run build && node tests/roundtrip-smoke.mjs",
+    "cli": "node dist/cli/main.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^24.5.2",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
+  }
+}
