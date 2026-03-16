@@ -248,6 +248,7 @@ my-preset/
 ├─ pack/
 │  ├─ preset.raw.json
 │  ├─ preset.meta.json
+│  ├─ risup.meta.json
 │  ├─ prompt-template.meta.json
 │  ├─ regex.meta.json
 │  └─ dist/
@@ -271,11 +272,8 @@ sequenceDiagram
 ```
 
 - `tests/roundtrip-smoke.mjs`
-- `risum`
-- `risup`
-- `charx`
-- `jpg/jpeg`
-- `png`
+- synthetic/security 기본 검증
+- sample manifest가 있을 때 포맷별 roundtrip 추가 검증
 - editable 텍스트 파일 동일
 - 에셋 수 동일
 - PNG 청크 키 동일

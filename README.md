@@ -134,19 +134,14 @@ npm run check
 npm run format
 ```
 
-`npm test`는 대표 샘플에 대해 아래 흐름을 검증합니다.
+`npm test`는 기본적으로 synthetic/security 케이스를 검증하고,
+`workspace\samples\roundtrip-manifest.json`이 있으면 샘플 roundtrip도 추가로 검증합니다.
 
 ```text
 extract -> build -> re-extract
 ```
 
-현재 검증 대상:
-
-- `risum`
-- `risup`
-- `charx`
-- `jpg/jpeg`
-- `png`
+기본 검증에는 synthetic `risum`/`risupreset` roundtrip, 경로 탈출 방지, source 누락 거부 등이 포함됩니다.
 
 ## 문서
 
@@ -154,8 +149,7 @@ extract -> build -> re-extract
 - [포맷 메모](docs/format/)
 
 ## 크레딧
-
-- RisuToki: [komodoD/RisuToki](https://github.com/komodoD/RisuToki)
-- 모듈툴: [arca.live 글](https://arca.live/b/characterai/163439328)
+- 모듈툴: [arca.live 글](https://arca.live/b/characterai/163439328): 사실상 프로젝트의 동기이자 지향점. 모듈 처리 방식 상당수.
 - 로어툴: [arca.live 글](https://arca.live/b/characterai/163452507)
+- RisuToki: [komodoD/RisuToki](https://github.com/komodoD/RisuToki): 봇에서의 편집 대상
 - RisuAI: [kwaroran/RisuAI](https://github.com/kwaroran/RisuAI)
