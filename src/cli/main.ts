@@ -15,10 +15,10 @@ program
     "after",
     `
 예시:
-  risu-workspace-tools extract workspace\\samples\\test_file\\Serena.charx workspace\\runs\\serena
-  risu-workspace-tools extract workspace\\samples\\test_file\\🦋 PSYCHE v1.8.risup workspace\\runs\\psyche
-  risu-workspace-tools build workspace\\runs\\serena
-  risu-workspace-tools inspect workspace\\samples\\test_file\\벨피라.risum
+  risu-workspace-tools extract path\\to\\bot.charx workspace\\runs\\bot
+  risu-workspace-tools extract path\\to\\preset.risup workspace\\runs\\preset
+  risu-workspace-tools build workspace\\runs\\bot
+  risu-workspace-tools inspect path\\to\\module.risum
 `
   );
 

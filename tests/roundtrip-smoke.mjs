@@ -13,62 +13,16 @@ import AdmZip from "adm-zip";
 
 const ROOT = resolve(".");
 const CLI = resolve(ROOT, "dist", "cli", "main.js");
-const SAMPLE_ROOT = resolve(ROOT, "workspace", "samples", "test_file");
 const WORK_ROOT = resolve(ROOT, "test-artifacts", "automated-roundtrip");
+const SAMPLE_MANIFEST_PATH = resolve(
+  ROOT,
+  "workspace",
+  "samples",
+  "roundtrip-manifest.json"
+);
 
-const CASES = [
-  {
-    name: "risum-belpira",
-    input: resolve(SAMPLE_ROOT, "벨피라.risum"),
-    outputName: "result.risum",
-    kind: "risum"
-  },
-  {
-    name: "risum-lightboard",
-    input: resolve(SAMPLE_ROOT, "🔦라이트보드 🌠 삽화 3.4.1.risum"),
-    outputName: "result.risum",
-    kind: "risum"
-  },
-  {
-    name: "risup-psyche",
-    input: resolve(SAMPLE_ROOT, "🦋 PSYCHE v1.8.risup"),
-    outputName: "result.risup",
-    kind: "risup"
-  },
-  {
-    name: "charx-serena",
-    input: resolve(SAMPLE_ROOT, "Serena.charx"),
-    outputName: "result.charx",
-    kind: "zip-charx"
-  },
-  {
-    name: "jpeg-59da",
-    input: resolve(
-      SAMPLE_ROOT,
-      "59da5384fe4cbf10f3bcb2b082cd1ecab61b2b27d5966ef4dda742e85ce4c9b8.jpg"
-    ),
-    outputName: "result.jpg",
-    kind: "jpeg-zip"
-  },
-  {
-    name: "jpeg-gaia",
-    input: resolve(SAMPLE_ROOT, "가이아.jpeg"),
-    outputName: "result.jpeg",
-    kind: "jpeg-zip"
-  },
-  {
-    name: "png-ellen",
-    input: resolve(SAMPLE_ROOT, "Ellen Baker.png"),
-    outputName: "result.png",
-    kind: "png-chunks"
-  },
-  {
-    name: "png-twins",
-    input: resolve(SAMPLE_ROOT, "Twins' Love.png"),
-    outputName: "result.png",
-    kind: "png-chunks"
-  }
-];
+const SAMPLE_MANIFEST = loadSampleManifest();
+const CASES = SAMPLE_MANIFEST?.cases ?? [];
 
 main().catch((error) => {
   console.error(error);
@@ -80,7 +34,7 @@ async function main() {
   rmSync(WORK_ROOT, { recursive: true, force: true });
   mkdirSync(WORK_ROOT, { recursive: true });
 
-  assertRisumInspectWorksOutsideRoot();
+  assertInspectWorksOutsideRoot();
   assertZipSlipRejected();
   assertBotBuildPathTraversalRejected();
   await assertRisumBuildPathTraversalRejected();
@@ -94,6 +48,13 @@ async function main() {
   await assertSyntheticRisupresetDuplicateRegexRoundtrip();
   await assertPresetBuildMissingFileRejected();
   assertBotBuildMissingFileRejected();
+
+  if (CASES.length === 0) {
+    console.log(
+      `[INFO] sample roundtrip cases skipped: manifest not found (${SAMPLE_MANIFEST_PATH})`
+    );
+    return;
+  }
 
   const results = [];
   for (const testCase of CASES) {
@@ -355,10 +316,14 @@ function ensureBuilt() {
   }
 }
 
-function assertRisumInspectWorksOutsideRoot() {
+function assertInspectWorksOutsideRoot() {
+  if (!SAMPLE_MANIFEST?.inspectInput) {
+    console.log("[INFO] inspect outside-root sample skipped: no manifest entry");
+    return;
+  }
   const otherCwd = join(ROOT, "workspace", "scratch", "outside-cwd");
   mkdirSync(otherCwd, { recursive: true });
-  runCli(["inspect", resolve(SAMPLE_ROOT, "벨피라.risum")], otherCwd);
+  runCli(["inspect", SAMPLE_MANIFEST.inspectInput], otherCwd);
 }
 
 function assertZipSlipRejected() {
@@ -447,6 +412,10 @@ function assertZipPreservedEntriesRoundtrip() {
 }
 
 function assertBotBuildPathTraversalRejected() {
+  if (!SAMPLE_MANIFEST?.botBuildInput) {
+    console.log("[INFO] bot path traversal sample skipped: no manifest entry");
+    return;
+  }
   const caseRoot = join(WORK_ROOT, "security-bot-build-path");
   const projectDir = join(caseRoot, "project");
   const outsidePath = join(caseRoot, "secret.txt");
@@ -455,7 +424,7 @@ function assertBotBuildPathTraversalRejected() {
   mkdirSync(caseRoot, { recursive: true });
   writeFileSync(outsidePath, "secret", "utf-8");
 
-  runCli(["extract", resolve(SAMPLE_ROOT, "Serena.charx"), projectDir]);
+  runCli(["extract", SAMPLE_MANIFEST.botBuildInput, projectDir]);
 
   const botMetaPath = join(projectDir, "pack", "bot.meta.json");
   const botMeta = readJson(botMetaPath);
@@ -479,6 +448,10 @@ function assertBotBuildPathTraversalRejected() {
 }
 
 async function assertRisumBuildPathTraversalRejected() {
+  if (!SAMPLE_MANIFEST?.moduleBuildInput) {
+    console.log("[INFO] module path traversal sample skipped: no manifest entry");
+    return;
+  }
   const caseRoot = join(WORK_ROOT, "security-risum-build-path");
   const projectDir = join(caseRoot, "project");
   const outsidePath = join(caseRoot, "secret.bin");
@@ -487,11 +460,7 @@ async function assertRisumBuildPathTraversalRejected() {
   mkdirSync(caseRoot, { recursive: true });
   writeFileSync(outsidePath, "secret", "utf-8");
 
-  runCli([
-    "extract",
-    resolve(SAMPLE_ROOT, "🔦라이트보드 🌠 삽화 3.4.1.risum"),
-    projectDir
-  ]);
+  runCli(["extract", SAMPLE_MANIFEST.moduleBuildInput, projectDir]);
 
   const assetMetaPath = join(projectDir, "pack", "module.assets.json");
   const assetMeta = readJson(assetMetaPath);
@@ -914,13 +883,17 @@ async function assertPresetBuildMissingFileRejected() {
 }
 
 function assertBotBuildMissingFileRejected() {
+  if (!SAMPLE_MANIFEST?.botBuildInput) {
+    console.log("[INFO] bot missing-source sample skipped: no manifest entry");
+    return;
+  }
   const caseRoot = join(WORK_ROOT, "bot-missing-source");
   const extracted = join(caseRoot, "extracted");
 
   rmSync(caseRoot, { recursive: true, force: true });
   mkdirSync(caseRoot, { recursive: true });
 
-  runCli(["extract", resolve(SAMPLE_ROOT, "Serena.charx"), extracted]);
+  runCli(["extract", SAMPLE_MANIFEST.botBuildInput, extracted]);
   rmSync(join(extracted, "src", "card", "name.txt"), { force: true });
 
   const result = spawnSync(
@@ -1065,4 +1038,51 @@ function crc32(buffer) {
     }
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function loadSampleManifest() {
+  if (!existsSync(SAMPLE_MANIFEST_PATH)) {
+    return null;
+  }
+
+  const manifest = JSON.parse(readFileSync(SAMPLE_MANIFEST_PATH, "utf-8"));
+  return {
+    inspectInput:
+      typeof manifest.inspectInput === "string"
+        ? resolve(ROOT, manifest.inspectInput)
+        : null,
+    botBuildInput:
+      typeof manifest.botBuildInput === "string"
+        ? resolve(ROOT, manifest.botBuildInput)
+        : null,
+    moduleBuildInput:
+      typeof manifest.moduleBuildInput === "string"
+        ? resolve(ROOT, manifest.moduleBuildInput)
+        : null,
+    cases: Array.isArray(manifest.cases)
+      ? manifest.cases.map((item, index) => normalizeCase(item, index))
+      : []
+  };
+}
+
+function normalizeCase(item, index) {
+  if (!item || typeof item !== "object") {
+    throw new Error(`invalid manifest case at index ${index}`);
+  }
+
+  const name =
+    typeof item.name === "string" && item.name ? item.name : `case-${index + 1}`;
+  const input =
+    typeof item.input === "string" ? resolve(ROOT, item.input) : null;
+  const outputName =
+    typeof item.outputName === "string" && item.outputName
+      ? item.outputName
+      : "result.bin";
+  const kind = typeof item.kind === "string" ? item.kind : null;
+
+  if (!input || !kind) {
+    throw new Error(`invalid manifest case at index ${index}`);
+  }
+
+  return { name, input, outputName, kind };
 }
