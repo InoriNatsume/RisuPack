@@ -8,7 +8,7 @@ import { decode, encode } from "msgpackr";
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const RPACK_PATH = resolve(
   MODULE_DIR,
-  "../../../third_party/container-risum-copy/lib/rpack.mjs"
+  "../../../vendor/risu-codec/lib/rpack.mjs"
 );
 const RISUPRESET_KEY = "risupreset";
 

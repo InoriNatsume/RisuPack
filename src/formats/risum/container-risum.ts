@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const CODEC_PATH = resolve(
   MODULE_DIR,
-  "../../../third_party/container-risum-copy/lib/codec.mjs"
+  "../../../vendor/risu-codec/lib/risum-container.mjs"
 );
 
 export async function loadRisumCodec(): Promise<{

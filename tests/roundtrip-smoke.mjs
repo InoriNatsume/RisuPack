@@ -46,6 +46,7 @@ async function main() {
   assertZipPreservedEntriesRoundtrip();
   await assertSyntheticRisupresetRoundtrip();
   await assertSyntheticRisupresetDuplicateRegexRoundtrip();
+  await assertSyntheticRisumCodecRoundtrip();
   await assertPresetBuildMissingFileRejected();
   assertBotBuildMissingFileRejected();
 
@@ -843,6 +844,42 @@ async function assertSyntheticRisupresetDuplicateRegexRoundtrip() {
     regexMeta.items[0].sourceFile !== regexMeta.items[1].sourceFile,
     true,
     "duplicate regex comments: unique source files"
+  );
+}
+
+async function assertSyntheticRisumCodecRoundtrip() {
+  const { loadRisumCodec } = await import(
+    pathToFileURL(
+      resolve(ROOT, "dist", "formats", "risum", "container-risum.js")
+    ).href
+  );
+  const { packModule, unpackModule } = await loadRisumCodec();
+
+  const module = {
+    name: "Synthetic Module",
+    trigger: [],
+    lorebook: [],
+    regex: [],
+    assets: [["demo.png", "assets/demo.png", "png"]]
+  };
+  const assetBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]);
+
+  const packed = await packModule(module, [assetBuffer]);
+  const unpacked = await unpackModule(packed);
+
+  assertEqualJson(
+    unpacked.module,
+    {
+      ...module,
+      assets: [["demo.png", "", "png"]]
+    },
+    "synthetic risum codec: module roundtrip"
+  );
+  assertEqual(unpacked.assets.length, 1, "synthetic risum codec: asset count");
+  assertEqual(
+    unpacked.assets[0].equals(assetBuffer),
+    true,
+    "synthetic risum codec: asset payload"
   );
 }
 

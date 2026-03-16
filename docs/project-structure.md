@@ -49,7 +49,7 @@ flowchart TD
     D --> H["source-module.ts"]
     J --> K["container-risup.ts"]
     J --> L["source-risup.ts"]
-    G --> I["third_party/container-risum-copy"]
+    G --> I["vendor/risu-codec"]
 ```
 
 현재 구현은 TypeScript 기반입니다.
@@ -95,9 +95,8 @@ RisuCMP/
 │     ├─ module.ts
 │     ├─ preset.ts
 │     └─ project.ts
-├─ third_party/
-│  ├─ container-risum-copy/
-│  └─ source-module-copy/
+├─ vendor/
+│  └─ risu-codec/
 ├─ tests/
 │  └─ roundtrip-smoke.mjs
 └─ docs/

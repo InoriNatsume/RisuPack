@@ -70,12 +70,12 @@ risu-workspace-tools inspect path\to\preset.risup
 RisuCMP/
 ├─ src/                 # CLI와 포맷 처리 코드
 ├─ docs/                # 설계와 구조 문서
+├─ vendor/              # vendored risum/rpack 코덱
 ├─ workspace/
 │  ├─ samples/          # 샘플 입력 파일
 │  ├─ runs/             # 실제 작업용 추출 결과
 │  └─ scratch/          # 임시 작업 폴더
 ├─ test-artifacts/      # 테스트 산출물
-└─ third_party/         # 외부 복사본/코덱
 ```
 
 봇 작업 폴더:
