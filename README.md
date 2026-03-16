@@ -1,12 +1,13 @@
 # risu-workspace-tools
 
 `risuai-module-tools`가 하던 `extract / build` 흐름을 기준으로,
-RisuAI의 봇과 모듈을 작업 폴더로 분해하고 다시 조립하는 CLI입니다.
+RisuAI의 봇, 모듈, 프리셋을 작업 폴더로 분해하고 다시 조립하는 CLI입니다.
 
 현재 1차 범위:
 
 - 봇: `.charx`, `.png`, `.jpg`, `.jpeg`
 - 모듈: `.risum`
+- 프리셋: `.risup`, `.risupreset`
 
 현재 목표는 **기존 도구 수준 유지**입니다.
 즉 새로운 편집 기능을 크게 늘리기보다,
@@ -59,6 +60,7 @@ risu-workspace-tools --help
 ```powershell
 risu-workspace-tools extract workspace\samples\test_file\Serena.charx workspace\runs\serena
 risu-workspace-tools extract workspace\samples\test_file\벨피라.risum workspace\runs\belpira
+risu-workspace-tools extract workspace\samples\test_file\🦋 PSYCHE v1.8.risup workspace\runs\psyche
 ```
 
 ### build
@@ -68,6 +70,7 @@ risu-workspace-tools extract workspace\samples\test_file\벨피라.risum workspa
 ```powershell
 risu-workspace-tools build workspace\runs\serena
 risu-workspace-tools build workspace\runs\belpira
+risu-workspace-tools build workspace\runs\psyche
 ```
 
 출력 파일을 직접 지정할 수도 있습니다.
@@ -83,6 +86,7 @@ risu-workspace-tools build workspace\runs\serena workspace\runs\serena-out.charx
 ```powershell
 risu-workspace-tools inspect workspace\samples\test_file\Serena.charx
 risu-workspace-tools inspect workspace\samples\test_file\벨피라.risum
+risu-workspace-tools inspect workspace\samples\test_file\🦋 PSYCHE v1.8.risup
 ```
 
 ## 폴더 정리 기준
@@ -211,6 +215,53 @@ my-module/
 - 재조합은 원래 식별자(`sourcePath`, `chunkKey`, `sourceIndex`) 기준으로 합니다.
 - 확장자는 메타 문자열보다 바이트 시그니처 판정을 우선합니다.
 
+### 프리셋
+
+```text
+my-preset/
+├─ project.meta.json
+├─ src/
+│  ├─ name.txt
+│  ├─ main-prompt.md
+│  ├─ jailbreak.md
+│  ├─ global-note.md
+│  ├─ custom-prompt-template-toggle.txt
+│  ├─ template-default-variables.txt
+│  ├─ prompt-template/
+│  │  ├─ 001-*.json
+│  │  ├─ 001-*.md
+│  │  └─ ...
+│  └─ regex/
+│     ├─ *.json
+│     └─ ...
+├─ pack/
+│  ├─ preset.raw.json
+│  ├─ preset.meta.json
+│  ├─ prompt-template.meta.json
+│  ├─ regex.meta.json
+│  └─ dist/
+│     └─ preset.json
+└─ dist/
+```
+
+프리셋은 내부적으로:
+
+1. `container` 단계에서 `.risup` / `.risupreset`를 해제/재조립
+2. `source` 단계에서 주요 텍스트와 `promptTemplate`, `regex`를 편집용 파일로 분해/조립
+
+흐름으로 동작합니다.
+
+현재 1차 editable 범위:
+
+- `src/name.txt`
+- `src/main-prompt.md`
+- `src/jailbreak.md`
+- `src/global-note.md`
+- `src/custom-prompt-template-toggle.txt`
+- `src/template-default-variables.txt`
+- `src/prompt-template/*.json`, `*.md`
+- `src/regex/*.json`
+
 ## 테스트
 
 자동 roundtrip 스모크 테스트:
@@ -230,6 +281,7 @@ extract -> build -> re-extract
 현재 검증 대상:
 
 - `risum`
+- `risup`
 - `charx`
 - `jpg/jpeg`
 - `png`

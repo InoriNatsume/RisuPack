@@ -66,15 +66,27 @@ export function buildCardFromSources<T extends CardLike>(
 export function readCardEditableSources(projectDir: string): BotEditableData {
   const cardDir = join(projectDir, CARD_SRC_DIR);
   return {
-    name: readText(join(cardDir, CARD_SOURCES.name)),
-    description: readText(join(cardDir, CARD_SOURCES.description)),
-    firstMessage: readText(join(cardDir, CARD_SOURCES.firstMessage)),
+    name: readRequiredText(join(cardDir, CARD_SOURCES.name), "name"),
+    description: readRequiredText(
+      join(cardDir, CARD_SOURCES.description),
+      "description"
+    ),
+    firstMessage: readRequiredText(
+      join(cardDir, CARD_SOURCES.firstMessage),
+      "firstMessage"
+    ),
     additionalFirstMessages: readAdditionalFirstMessages(
       join(cardDir, CARD_SOURCES.additionalFirstMessagesDir)
     ),
-    globalNote: readText(join(cardDir, CARD_SOURCES.globalNote)),
-    defaultVariables: readText(join(cardDir, CARD_SOURCES.defaultVariables)),
-    css: readText(join(cardDir, CARD_SOURCES.css))
+    globalNote: readRequiredText(
+      join(cardDir, CARD_SOURCES.globalNote),
+      "globalNote"
+    ),
+    defaultVariables: readRequiredText(
+      join(cardDir, CARD_SOURCES.defaultVariables),
+      "defaultVariables"
+    ),
+    css: readRequiredText(join(cardDir, CARD_SOURCES.css), "css")
   };
 }
 
@@ -103,6 +115,15 @@ function writeAdditionalFirstMessages(dir: string, messages: string[]): void {
 function readText(path: string): string {
   if (!existsSync(path)) {
     return "";
+  }
+  return readFileSync(path, "utf-8");
+}
+
+function readRequiredText(path: string, label: string): string {
+  if (!existsSync(path)) {
+    throw new Error(
+      `봇 build에 필요한 source 파일이 없습니다 (${label}): ${path}`
+    );
   }
   return readFileSync(path, "utf-8");
 }

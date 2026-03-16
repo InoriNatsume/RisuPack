@@ -30,6 +30,12 @@ const CASES = [
     kind: "risum"
   },
   {
+    name: "risup-psyche",
+    input: resolve(SAMPLE_ROOT, "🦋 PSYCHE v1.8.risup"),
+    outputName: "result.risup",
+    kind: "risup"
+  },
+  {
     name: "charx-serena",
     input: resolve(SAMPLE_ROOT, "Serena.charx"),
     outputName: "result.charx",
@@ -84,6 +90,10 @@ async function main() {
   await assertAssetSignatureWinsDeclaredExt();
   await assertLegacyRisuassetUriSupport();
   assertZipPreservedEntriesRoundtrip();
+  await assertSyntheticRisupresetRoundtrip();
+  await assertSyntheticRisupresetDuplicateRegexRoundtrip();
+  await assertPresetBuildMissingFileRejected();
+  assertBotBuildMissingFileRejected();
 
   const results = [];
   for (const testCase of CASES) {
@@ -111,6 +121,9 @@ function runCase(testCase) {
 
   if (testCase.kind === "risum") {
     return assertModuleRoundtrip(testCase, extracted, roundtrip);
+  }
+  if (testCase.kind === "risup") {
+    return assertPresetRoundtrip(testCase, extracted, roundtrip);
   }
 
   assertCardRoundtrip(testCase, extracted, roundtrip);
@@ -202,6 +215,39 @@ function assertModuleRoundtrip(testCase, extracted, roundtrip) {
   return { name: testCase.name };
 }
 
+function assertPresetRoundtrip(testCase, extracted, roundtrip) {
+  const builtPreset = readJson(join(extracted, "pack", "dist", "preset.json"));
+  const nextPreset = readJson(join(roundtrip, "pack", "preset.raw.json"));
+  assertEqualJson(builtPreset, nextPreset, `${testCase.name}: built preset`);
+
+  const files = [
+    ["src", "name.txt"],
+    ["src", "main-prompt.md"],
+    ["src", "jailbreak.md"],
+    ["src", "global-note.md"],
+    ["src", "custom-prompt-template-toggle.txt"],
+    ["src", "template-default-variables.txt"]
+  ];
+  for (const parts of files) {
+    const left = readFileSync(join(extracted, ...parts), "utf-8");
+    const right = readFileSync(join(roundtrip, ...parts), "utf-8");
+    assertEqual(left, right, `${testCase.name}: ${parts.join("/")}`);
+  }
+
+  assertDirectoryJsonRoundtrip(
+    join(extracted, "src", "prompt-template"),
+    join(roundtrip, "src", "prompt-template"),
+    `${testCase.name}: src/prompt-template`
+  );
+  assertDirectoryJsonRoundtrip(
+    join(extracted, "src", "regex"),
+    join(roundtrip, "src", "regex"),
+    `${testCase.name}: src/regex`
+  );
+
+  return { name: testCase.name };
+}
+
 function assertCardRoundtrip(testCase, extracted, roundtrip) {
   const files = [
     ["pack", "card", "card.meta.json"],
@@ -276,6 +322,20 @@ function assertModuleProjectRoundtrip(label, extracted, roundtrip) {
 }
 
 function assertDirectoryTextRoundtrip(leftDir, rightDir, label) {
+  const leftEntries = readDirSafe(leftDir).sort();
+  const rightEntries = readDirSafe(rightDir).sort();
+  assertEqualJson(leftEntries, rightEntries, `${label}: file list`);
+
+  for (const entryName of leftEntries) {
+    const leftPath = join(leftDir, entryName);
+    const rightPath = join(rightDir, entryName);
+    const left = readFileSync(leftPath, "utf-8");
+    const right = readFileSync(rightPath, "utf-8");
+    assertEqual(left, right, `${label}/${entryName}`);
+  }
+}
+
+function assertDirectoryJsonRoundtrip(leftDir, rightDir, label) {
   const leftEntries = readDirSafe(leftDir).sort();
   const rightEntries = readDirSafe(rightDir).sort();
   assertEqualJson(leftEntries, rightEntries, `${label}: file list`);
@@ -697,6 +757,183 @@ async function assertLegacyRisuassetUriSupport() {
     "legacy asset",
     "legacy risuasset hash:ext maps to display metadata"
   );
+}
+
+async function assertSyntheticRisupresetRoundtrip() {
+  const caseRoot = join(WORK_ROOT, "risupreset-synthetic");
+  const inputPath = join(caseRoot, "sample.risupreset");
+  const extracted = join(caseRoot, "extracted");
+  const rebuilt = join(caseRoot, "rebuilt.risupreset");
+  const roundtrip = join(caseRoot, "roundtrip");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  const { encodeRisupContainer } = await import(
+    pathToFileURL(
+      resolve(ROOT, "dist", "formats", "risup", "container-risup.js")
+    ).href
+  );
+  const preset = {
+    name: "Synthetic",
+    mainPrompt: "main",
+    jailbreak: "jb",
+    globalNote: "gn",
+    customPromptTemplateToggle: "cot=COT",
+    templateDefaultVariables: "lang=1",
+    promptTemplate: [
+      {
+        type: "plain",
+        type2: "main",
+        role: "system",
+        text: "hello"
+      }
+    ],
+    regex: [
+      {
+        comment: "sample",
+        type: "editoutput",
+        in: "a",
+        out: "b",
+        flag: "g"
+      }
+    ]
+  };
+  writeFileSync(inputPath, await encodeRisupContainer(preset, "risupreset"));
+
+  runCli(["extract", inputPath, extracted]);
+  runCli(["build", extracted, rebuilt]);
+  runCli(["extract", rebuilt, roundtrip]);
+
+  const builtPreset = readJson(join(extracted, "pack", "dist", "preset.json"));
+  const nextPreset = readJson(join(roundtrip, "pack", "preset.raw.json"));
+  assertEqualJson(
+    builtPreset,
+    nextPreset,
+    "synthetic risupreset built preset roundtrip"
+  );
+}
+
+async function assertSyntheticRisupresetDuplicateRegexRoundtrip() {
+  const caseRoot = join(WORK_ROOT, "risupreset-duplicate-regex");
+  const inputPath = join(caseRoot, "sample.risupreset");
+  const extracted = join(caseRoot, "extracted");
+  const rebuilt = join(caseRoot, "rebuilt.risupreset");
+  const roundtrip = join(caseRoot, "roundtrip");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  const { encodeRisupContainer } = await import(
+    pathToFileURL(
+      resolve(ROOT, "dist", "formats", "risup", "container-risup.js")
+    ).href
+  );
+  const preset = {
+    name: "Duplicate Regex",
+    regex: [
+      {
+        comment: "same",
+        type: "editoutput",
+        in: "a",
+        out: "1"
+      },
+      {
+        comment: "same",
+        type: "editoutput",
+        in: "b",
+        out: "2"
+      }
+    ]
+  };
+  writeFileSync(inputPath, await encodeRisupContainer(preset, "risupreset"));
+
+  runCli(["extract", inputPath, extracted]);
+  runCli(["build", extracted, rebuilt]);
+  runCli(["extract", rebuilt, roundtrip]);
+
+  const builtPreset = readJson(join(extracted, "pack", "dist", "preset.json"));
+  const nextPreset = readJson(join(roundtrip, "pack", "preset.raw.json"));
+  assertEqualJson(
+    builtPreset.regex,
+    preset.regex,
+    "duplicate regex comments: built preset preserves entries"
+  );
+  assertEqualJson(
+    nextPreset.regex,
+    preset.regex,
+    "duplicate regex comments: roundtrip preserves entries"
+  );
+
+  const regexMeta = readJson(join(extracted, "pack", "regex.meta.json"));
+  assertEqual(
+    regexMeta.items[0].sourceFile !== regexMeta.items[1].sourceFile,
+    true,
+    "duplicate regex comments: unique source files"
+  );
+}
+
+async function assertPresetBuildMissingFileRejected() {
+  const caseRoot = join(WORK_ROOT, "preset-missing-source");
+  const inputPath = join(caseRoot, "sample.risupreset");
+  const extracted = join(caseRoot, "extracted");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  const { encodeRisupContainer } = await import(
+    pathToFileURL(
+      resolve(ROOT, "dist", "formats", "risup", "container-risup.js")
+    ).href
+  );
+  writeFileSync(
+    inputPath,
+    await encodeRisupContainer(
+      {
+        name: "Missing Source",
+        mainPrompt: "prompt"
+      },
+      "risupreset"
+    )
+  );
+
+  runCli(["extract", inputPath, extracted]);
+  rmSync(join(extracted, "src", "name.txt"), { force: true });
+
+  const result = spawnSync(
+    process.execPath,
+    [CLI, "build", extracted, join(caseRoot, "rebuilt.risupreset")],
+    {
+      cwd: ROOT,
+      encoding: "utf-8"
+    }
+  );
+  if (result.status === 0) {
+    throw new Error("프리셋 build가 누락된 source 파일을 거부하지 않았습니다.");
+  }
+}
+
+function assertBotBuildMissingFileRejected() {
+  const caseRoot = join(WORK_ROOT, "bot-missing-source");
+  const extracted = join(caseRoot, "extracted");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  runCli(["extract", resolve(SAMPLE_ROOT, "Serena.charx"), extracted]);
+  rmSync(join(extracted, "src", "card", "name.txt"), { force: true });
+
+  const result = spawnSync(
+    process.execPath,
+    [CLI, "build", extracted, join(caseRoot, "rebuilt.charx")],
+    {
+      cwd: ROOT,
+      encoding: "utf-8"
+    }
+  );
+  if (result.status === 0) {
+    throw new Error("봇 build가 누락된 source 파일을 거부하지 않았습니다.");
+  }
 }
 
 function runCli(args, cwd = ROOT) {

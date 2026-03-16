@@ -1,6 +1,13 @@
-export type SupportedInputFormat = "risum" | "charx" | "png" | "jpg" | "jpeg";
+export type SupportedInputFormat =
+  | "risum"
+  | "charx"
+  | "png"
+  | "jpg"
+  | "jpeg"
+  | "risup"
+  | "risupreset";
 
-export type ProjectKind = "module" | "bot";
+export type ProjectKind = "module" | "bot" | "preset";
 
 export interface ProjectMeta {
   kind: ProjectKind;

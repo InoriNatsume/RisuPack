@@ -2,6 +2,7 @@ import { detectInputFormat } from "./detect.js";
 import { readProjectMeta } from "./project-meta.js";
 import { extractBot, buildBot } from "../formats/bot/index.js";
 import { extractRisum, buildRisum } from "../formats/risum/index.js";
+import { buildRisup, extractRisup } from "../formats/risup/index.js";
 
 export async function routeExtract(
   inputPath: string,
@@ -12,6 +13,9 @@ export async function routeExtract(
   switch (format) {
     case "risum":
       return extractRisum(inputPath, projectDir);
+    case "risup":
+    case "risupreset":
+      return extractRisup(inputPath, projectDir, format);
     case "charx":
     case "png":
     case "jpg":
@@ -33,6 +37,8 @@ export async function routeBuild(
       return buildRisum(projectDir, outputPath);
     case "bot":
       return buildBot(projectDir, outputPath);
+    case "preset":
+      return buildRisup(projectDir, outputPath);
     default:
       return assertNever(meta.kind);
   }

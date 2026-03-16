@@ -9,7 +9,7 @@ import { buildBotSources, extractBotSources } from "./source-bot.js";
 export async function extractBot(
   inputPath: string,
   projectDir: string,
-  sourceFormat: Exclude<SupportedInputFormat, "risum">
+  sourceFormat: Extract<SupportedInputFormat, "charx" | "png" | "jpg" | "jpeg">
 ): Promise<void> {
   const container = detectBotContainer(inputPath);
 

@@ -1,6 +1,7 @@
 import { detectInputFormat } from "./detect.js";
 import { inspectBot } from "../formats/bot/inspect.js";
 import { inspectRisum } from "../formats/risum/inspect.js";
+import { inspectRisup } from "../formats/risup/inspect.js";
 
 export async function inspectInput(
   inputPath: string
@@ -10,6 +11,9 @@ export async function inspectInput(
   switch (format) {
     case "risum":
       return inspectRisum(inputPath);
+    case "risup":
+    case "risupreset":
+      return inspectRisup(inputPath, format);
     case "charx":
     case "jpg":
     case "jpeg":

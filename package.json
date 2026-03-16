@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "msgpackr": "^1.11.5"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",

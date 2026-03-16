@@ -1,6 +1,6 @@
 ---
 name: risu-workspace-tools
-description: Work with the RisuCMP TypeScript CLI that extracts, edits, inspects, and rebuilds RisuAI bot and module formats. Use when modifying or validating this repository's workflows for .risum, .charx, .png, .jpg, or .jpeg files, especially for workspace layout, container/source split, embedded module handling, trigger mode handling, asset naming/repack behavior, and Windows-first CLI usage.
+description: Work with the RisuCMP TypeScript CLI that extracts, edits, inspects, and rebuilds RisuAI bot, module, and preset formats. Use when modifying or validating this repository's workflows for .risum, .risup, .risupreset, .charx, .png, .jpg, or .jpeg files, especially for workspace layout, container/source split, embedded module handling, trigger mode handling, preset prompt-template handling, asset naming/repack behavior, and Windows-first CLI usage.
 ---
 
 # Risu Workspace Tools
@@ -22,15 +22,17 @@ Use this skill when working inside the RisuCMP repository.
 
 ## Format model
 
-- Bots and modules both use a `container` stage and a `source` stage.
+- Bots, modules, and presets all use a `container` stage and a `source` stage.
 - Bot containers support `.charx`, `.png`, `.jpg`, `.jpeg`.
 - Module containers support `.risum`.
+- Preset containers support `.risup`, `.risupreset`.
 - Embedded `module.risum` inside bots is extracted into `src/module/`.
 
 ## Current source layout
 
 - Bot card editable files live under `src/card/`.
 - Module editable files live under `src/module/src/` for embedded modules or `src/` for standalone modules.
+- Preset editable files live under `src/`, with `src/prompt-template/` and `src/regex/` for split items.
 - Pack/rebuild metadata lives under `pack/`.
 - Runtime user workspaces live under `workspace/runs/`.
 - Test and validation artifacts live under `test-artifacts/`.

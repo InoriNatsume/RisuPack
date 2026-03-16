@@ -1,7 +1,6 @@
 # 프로젝트 구조 설계
 
-> 이 문서는 **현재 구현 기준의 구조 문서**입니다.  
-> `risup`은 후속 작업입니다.
+> 이 문서는 **현재 구현 기준의 구조 문서**입니다.
 
 ## 1. 현재 코드 구조
 
@@ -10,10 +9,13 @@ flowchart TD
     A["CLI<br/>extract / build / inspect"] --> B["core<br/>detect / routing / inspect / assets"]
     B --> C["formats/bot"]
     B --> D["formats/risum"]
+    B --> J["formats/risup"]
     C --> E["container.ts<br/>container-zip.ts<br/>container-png.ts"]
     C --> F["source-bot.ts<br/>source-card.ts"]
     D --> G["container-risum.ts"]
     D --> H["source-module.ts"]
+    J --> K["container-risup.ts"]
+    J --> L["source-risup.ts"]
     G --> I["third_party/container-risum-copy"]
 ```
 
@@ -47,10 +49,18 @@ RisuCMP/
 │  │     ├─ index.ts
 │  │     ├─ inspect.ts
 │  │     ├─ source-module.ts
-│  │     └─ paths.ts
+│  │     ├─ paths.ts
+│  │     └─ ...
+│  │  ├─ risup/
+│  │  │  ├─ container-risup.ts
+│  │  │  ├─ index.ts
+│  │  │  ├─ inspect.ts
+│  │  │  ├─ paths.ts
+│  │  │  └─ source-risup.ts
 │  └─ types/
 │     ├─ bot.ts
 │     ├─ module.ts
+│     ├─ preset.ts
 │     └─ project.ts
 ├─ third_party/
 │  ├─ container-risum-copy/
@@ -77,11 +87,13 @@ flowchart TD
     A["extract/build 요청"] --> B["detect.ts 또는 project.meta.json"]
     B --> C["bot 처리기"]
     B --> D["risum 처리기"]
+    B --> E["risup 처리기"]
 ```
 
 규칙은 단순합니다.
 
 - `.risum` -> 모듈 처리기
+- `.risup`, `.risupreset` -> 프리셋 처리기
 - `.charx`, `.png`, `.jpg`, `.jpeg` -> 봇 처리기
 - `build`는 `project.meta.json`의 `kind`를 보고 처리기 선택
 
@@ -304,6 +316,40 @@ my-module/
 - `pack/trigger.meta.json`은 이 트리거 모드와 재조립 규칙을 기록합니다.
 - `backgroundEmbedding`은 `src/styles/embedding.css`로 별도 분해합니다.
 
+## 5.3 프리셋 작업 폴더
+
+```text
+my-preset/
+├─ project.meta.json
+├─ src/
+│  ├─ name.txt
+│  ├─ main-prompt.md
+│  ├─ jailbreak.md
+│  ├─ global-note.md
+│  ├─ custom-prompt-template-toggle.txt
+│  ├─ template-default-variables.txt
+│  ├─ prompt-template/
+│  │  ├─ 001-*.json
+│  │  ├─ 001-*.md
+│  │  └─ ...
+│  └─ regex/
+│     ├─ *.json
+│     └─ ...
+├─ pack/
+│  ├─ preset.raw.json
+│  ├─ preset.meta.json
+│  ├─ prompt-template.meta.json
+│  ├─ regex.meta.json
+│  └─ dist/
+│     └─ preset.json
+└─ dist/
+```
+
+프리셋도 두 단계 구조입니다.
+
+1. `.risup` / `.risupreset` container 해제/재조립
+2. source 단계로 주요 텍스트, `promptTemplate`, `regex` 분해/조립
+
 ---
 
 ## 6. 테스트 구조
@@ -328,6 +374,7 @@ sequenceDiagram
 현재 검증 대상:
 
 - `risum`
+- `risup`
 - `charx`
 - `jpg/jpeg`
 - `png`
@@ -346,7 +393,6 @@ sequenceDiagram
 
 현재 구조 문서에서 아직 후속 작업으로 남겨 둔 것은 아래입니다.
 
-- `risup`
 - 추가 inspect 출력 확장
 - 더 넓은 editable 범위
 

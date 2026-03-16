@@ -40,7 +40,10 @@ type PngCardChunkKey = "ccv3" | "chara";
 export async function extractPngContainer(
   inputPath: string,
   projectDir: string,
-  sourceFormat: Exclude<ProjectMeta["sourceFormat"], "risum">
+  sourceFormat: Extract<
+    ProjectMeta["sourceFormat"],
+    "charx" | "png" | "jpg" | "jpeg"
+  >
 ): Promise<void> {
   const inputBytes = readFileSync(inputPath);
   const textChunks = listTextChunks(inputBytes);

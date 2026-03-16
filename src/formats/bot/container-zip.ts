@@ -38,7 +38,10 @@ const PRESERVED_PREFIX_FILENAME = "container-prefix.bin";
 export async function extractZipContainer(
   inputPath: string,
   projectDir: string,
-  sourceFormat: Exclude<ProjectMeta["sourceFormat"], "risum">,
+  sourceFormat: Extract<
+    ProjectMeta["sourceFormat"],
+    "charx" | "png" | "jpg" | "jpeg"
+  >,
   container: BotContainerInfo
 ): Promise<void> {
   const inputBytes = readFileSync(inputPath);

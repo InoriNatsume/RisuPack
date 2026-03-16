@@ -4,6 +4,8 @@ import type { SupportedInputFormat } from "../types/project.js";
 
 const FORMAT_BY_EXTENSION: Record<string, SupportedInputFormat> = {
   ".risum": "risum",
+  ".risup": "risup",
+  ".risupreset": "risupreset",
   ".charx": "charx",
   ".png": "png",
   ".jpg": "jpg",
