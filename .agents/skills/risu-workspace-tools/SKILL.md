@@ -60,5 +60,4 @@ Use this skill when working inside the RisuCMP repository.
 ## Read these files when needed
 
 - Read [README.md](/Users/kazuk/Downloads/RisuCMP/README.md) for current CLI usage and workspace conventions.
-- Read [docs/project-structure.md](/Users/kazuk/Downloads/RisuCMP/docs/project-structure.md) for the current architecture and folder layout.
-- Read [docs/design-direction.md](/Users/kazuk/Downloads/RisuCMP/docs/design-direction.md) for project scope and boundaries.
+- Read [docs/project-structure.md](/Users/kazuk/Downloads/RisuCMP/docs/project-structure.md) for the current architecture, scope, boundaries, and folder layout.

@@ -318,7 +318,9 @@ function ensureBuilt() {
 
 function assertInspectWorksOutsideRoot() {
   if (!SAMPLE_MANIFEST?.inspectInput) {
-    console.log("[INFO] inspect outside-root sample skipped: no manifest entry");
+    console.log(
+      "[INFO] inspect outside-root sample skipped: no manifest entry"
+    );
     return;
   }
   const otherCwd = join(ROOT, "workspace", "scratch", "outside-cwd");
@@ -449,7 +451,9 @@ function assertBotBuildPathTraversalRejected() {
 
 async function assertRisumBuildPathTraversalRejected() {
   if (!SAMPLE_MANIFEST?.moduleBuildInput) {
-    console.log("[INFO] module path traversal sample skipped: no manifest entry");
+    console.log(
+      "[INFO] module path traversal sample skipped: no manifest entry"
+    );
     return;
   }
   const caseRoot = join(WORK_ROOT, "security-risum-build-path");
@@ -1071,7 +1075,9 @@ function normalizeCase(item, index) {
   }
 
   const name =
-    typeof item.name === "string" && item.name ? item.name : `case-${index + 1}`;
+    typeof item.name === "string" && item.name
+      ? item.name
+      : `case-${index + 1}`;
   const input =
     typeof item.input === "string" ? resolve(ROOT, item.input) : null;
   const outputName =

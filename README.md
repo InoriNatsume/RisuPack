@@ -150,7 +150,6 @@ extract -> build -> re-extract
 
 ## 문서
 
-- [설계 방향](docs/design-direction.md)
 - [프로젝트 구조](docs/project-structure.md)
 - [포맷 메모](docs/format/)
 
