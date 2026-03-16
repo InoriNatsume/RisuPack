@@ -146,6 +146,8 @@ extract -> build -> re-extract
 ## 문서
 
 - [프로젝트 구조](docs/project-structure.md)
+- [작업장 구조안](docs/workspace-structure.md)
+- [pack 리팩터링 계획](docs/pack-refactor-plan.md)
 - [포맷 메모](docs/format/)
 
 ## 크레딧
