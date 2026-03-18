@@ -2,7 +2,7 @@ import { buildZipContainer, extractZipContainer } from "./container-zip.js";
 import { buildPngContainer, extractPngContainer } from "./container-png.js";
 import type { SupportedInputFormat } from "../../types/project.js";
 import { detectBotContainer } from "./container.js";
-import { readJson } from "./shared.js";
+import { readJson, type CardLike } from "./shared.js";
 import { BOT_META_PATH } from "./paths.js";
 import { buildBotSources, extractBotSources } from "./source-bot.js";
 
@@ -12,15 +12,21 @@ export async function extractBot(
   sourceFormat: Extract<SupportedInputFormat, "charx" | "png" | "jpg" | "jpeg">
 ): Promise<void> {
   const container = detectBotContainer(inputPath);
+  let card: CardLike;
 
   switch (container.kind) {
     case "zip-charx":
     case "jpeg-zip":
-      await extractZipContainer(inputPath, projectDir, sourceFormat, container);
-      return extractBotSources(projectDir);
+      card = await extractZipContainer(
+        inputPath,
+        projectDir,
+        sourceFormat,
+        container
+      );
+      return extractBotSources(projectDir, card);
     case "png-chunks":
-      await extractPngContainer(inputPath, projectDir, sourceFormat);
-      return extractBotSources(projectDir);
+      card = await extractPngContainer(inputPath, projectDir, sourceFormat);
+      return extractBotSources(projectDir, card);
     default:
       assertNever(container.kind);
   }

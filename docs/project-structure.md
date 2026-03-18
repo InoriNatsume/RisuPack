@@ -2,6 +2,11 @@
 
 > 이 문서는 **현재 구현 기준의 구조 문서**입니다.
 
+현재 구현의 핵심 권한:
+
+- `src/`와 `assets/`가 build 입력의 기준
+- `pack/`은 포맷 식별, 재작성 식별자, unsupported 원문 보존 같은 최소 메타
+
 ## 1. 현재 코드 구조
 
 ```mermaid
@@ -138,6 +143,7 @@ flowchart LR
 - 원래 경로 보존
 - 청크 키 보존
 - 에셋 순서 보존
+- 현재 `assets/` 스캔 우선
 
 ---
 
@@ -171,8 +177,10 @@ my-bot/
 ├─ pack/
 │  ├─ bot.meta.json
 │  ├─ card/
-│  │  ├─ card.meta.json
-│  │  └─ card.raw.json
+│  │  └─ card.meta.json
+│  ├─ dist/
+│  │  ├─ card.json
+│  │  └─ module.risum
 │  ├─ x_meta/
 │  └─ _preserved/
 ├─ assets/
@@ -182,7 +190,7 @@ my-bot/
 
 - `src/card/name.txt` 등 텍스트 파일
 - `pack/card/card.meta.json`
-- `pack/card/card.raw.json`
+- `pack/card/card.meta.json`은 editable 제외 base card + editable source 경로 설명
 - `pack/dist/card.json`
 - `src/module/`
 - `assets/`
@@ -225,6 +233,8 @@ my-module/
 - `pack/regex.meta.json`
 - `pack/trigger.meta.json`
 - `pack/dist/module.json`
+- build 시 lorebook/regex 목록은 `src/` 스캔 기준
+- `pack/module.assets.json`은 asset 식별자(`sourceIndex`) 보조 메타
 
 ## 5.3 프리셋 작업 폴더
 
@@ -256,6 +266,9 @@ my-preset/
 └─ dist/
 ```
 
+- build 시 prompt-template/regex 목록은 `src/` 스캔 기준
+- `prompt-template.meta.json`, `regex.meta.json`은 추출 시점 보조 메타
+
 ---
 
 ## 6. 테스트 구조
@@ -275,7 +288,8 @@ sequenceDiagram
 - synthetic/security 기본 검증
 - sample manifest가 있을 때 포맷별 roundtrip 추가 검증
 - editable 텍스트 파일 동일
-- 에셋 수 동일
+- 현재 `src/`/`assets/` 반영 우선
 - PNG 청크 키 동일
 - preserved 파일 동일
 - 모듈 `dist/module.json` roundtrip 동일
+- `pack` 메타를 비워도 source 스캔이 우선되는 synthetic 케이스 포함

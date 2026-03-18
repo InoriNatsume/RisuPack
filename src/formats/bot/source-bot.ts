@@ -18,12 +18,13 @@ import {
   BOT_META_PATH,
   BUILT_CARD_PATH,
   BUILT_MODULE_PATH,
-  CARD_RAW_PATH,
   MODULE_PROJECT_DIR
 } from "./paths.js";
 
-export async function extractBotSources(projectDir: string): Promise<void> {
-  const card = readJson<CardLike>(join(projectDir, CARD_RAW_PATH));
+export async function extractBotSources(
+  projectDir: string,
+  card: CardLike
+): Promise<void> {
   extractCardSources(projectDir, card);
 
   const botMeta = readJson<BotMeta>(join(projectDir, BOT_META_PATH));

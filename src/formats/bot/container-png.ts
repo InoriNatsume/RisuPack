@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { planAssetFile, writeAssetFile } from "../../core/assets.js";
+import {
+  listRelativeAssetFiles,
+  planAssetFile,
+  writeAssetFile
+} from "../../core/assets.js";
 import { readProjectMeta, writeProjectMeta } from "../../core/project-meta.js";
 import {
   resolveProjectPath,
@@ -21,7 +25,6 @@ import {
   BOT_META_PATH,
   BUILT_CARD_PATH,
   CARD_PACK_DIR,
-  CARD_RAW_PATH,
   PRESERVED_DIR
 } from "./paths.js";
 import {
@@ -44,7 +47,7 @@ export async function extractPngContainer(
     ProjectMeta["sourceFormat"],
     "charx" | "png" | "jpg" | "jpeg"
   >
-): Promise<void> {
+): Promise<CardLike> {
   const inputBytes = readFileSync(inputPath);
   const textChunks = listTextChunks(inputBytes);
   const cardChunkKeys: PngCardChunkKey[] = [];
@@ -88,7 +91,6 @@ export async function extractPngContainer(
   };
   writeProjectMeta(projectDir, projectMeta);
 
-  writeJson(join(projectDir, CARD_RAW_PATH), card);
   writeFileSync(
     join(projectDir, PRESERVED_DIR, PRESERVED_PNG_FILENAME),
     inputBytes
@@ -143,6 +145,7 @@ export async function extractPngContainer(
   };
   writeJson(join(projectDir, BOT_META_PATH), botMeta);
   writeAssetsGitignore(projectDir, ASSETS_DIR);
+  return card;
 }
 
 export async function buildPngContainer(
@@ -176,7 +179,8 @@ export async function buildPngContainer(
     });
   }
 
-  for (const asset of botMeta.pngAssets ?? []) {
+  const assetsToPack = mapPngAssetsForBuild(projectDir, botMeta);
+  for (const asset of assetsToPack) {
     const assetBytes = readFileSync(resolveProjectPath(projectDir, asset.path));
     replacementChunks.push({
       key: asset.chunkKey,
@@ -311,4 +315,97 @@ function toMediaKind(
     return "video";
   }
   return "binary";
+}
+
+function mapPngAssetsForBuild(
+  projectDir: string,
+  botMeta: BotMeta
+): Array<{ path: string; chunkKey: string }> {
+  const currentAssetPaths = listRelativeAssetFiles(
+    resolveProjectPath(projectDir, botMeta.assetRoot),
+    botMeta.assetRoot
+  );
+  const previousRecords = [...(botMeta.pngAssets ?? [])].sort(
+    (left, right) => Number(left.assetIndex) - Number(right.assetIndex)
+  );
+  const assigned = assignWorkspaceAssets(currentAssetPaths, previousRecords);
+  let nextAssetIndex = previousRecords.reduce(
+    (max, item) => Math.max(max, Number(item.assetIndex)),
+    -1
+  );
+
+  return assigned.map(({ path, record }) => {
+    if (record) {
+      return {
+        path,
+        chunkKey: record.chunkKey
+      };
+    }
+
+    nextAssetIndex += 1;
+    return {
+      path,
+      chunkKey: `chara-ext-asset_${nextAssetIndex}`
+    };
+  });
+}
+
+function assignWorkspaceAssets<
+  T extends { path: string; originalName?: string }
+>(
+  currentPaths: string[],
+  previousRecords: T[]
+): Array<{ path: string; record?: T }> {
+  const indexedRecords = previousRecords.map((record, index) => ({
+    ...record,
+    index
+  }));
+  const byPath = new Map(indexedRecords.map((record) => [record.path, record]));
+  const byStem = new Map<string, Array<T & { index: number }>>();
+  indexedRecords.forEach((record) => {
+    const stemKeys = new Set([
+      stemFromPath(record.path),
+      stemFromPath(record.originalName ?? record.path)
+    ]);
+    for (const key of stemKeys) {
+      if (!key) {
+        continue;
+      }
+      const items = byStem.get(key) ?? [];
+      items.push(record);
+      byStem.set(key, items);
+    }
+  });
+
+  const used = new Set<number>();
+  const orderedPrevious = indexedRecords;
+
+  return currentPaths.map((path) => {
+    const exact = byPath.get(path);
+    if (exact && !used.has(exact.index)) {
+      used.add(exact.index);
+      return { path, record: exact };
+    }
+
+    const stemMatches = byStem.get(stemFromPath(path)) ?? [];
+    const availableStem = stemMatches.find((item) => !used.has(item.index));
+    if (availableStem) {
+      used.add(availableStem.index);
+      return { path, record: availableStem };
+    }
+
+    const nextByOrder = orderedPrevious.find((item) => !used.has(item.index));
+    if (nextByOrder) {
+      used.add(nextByOrder.index);
+      return { path, record: nextByOrder };
+    }
+
+    return { path };
+  });
+}
+
+function stemFromPath(value: string): string {
+  return basename(value)
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase();
 }

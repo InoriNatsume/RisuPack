@@ -35,7 +35,6 @@ import {
 } from "./source-module-trigger.js";
 import type {
   LorebookPackMeta,
-  RegexPackMeta,
   TriggerPackMetaItem
 } from "./source-module-types.js";
 
@@ -108,6 +107,11 @@ export function buildModuleSources(projectDir: string): void {
   const module = readJson<Record<string, unknown>>(
     join(projectDir, MODULE_META_PATH)
   );
+  const lorebookMeta: LorebookPackMeta = existsSync(
+    join(projectDir, LOREBOOK_META_PATH)
+  )
+    ? readJson<LorebookPackMeta>(join(projectDir, LOREBOOK_META_PATH))
+    : { version: 1 as const, items: [] };
 
   const triggerMetaRef = module.trigger;
   if (
@@ -121,29 +125,8 @@ export function buildModuleSources(projectDir: string): void {
     module.trigger = buildTriggersFromMeta(projectDir, triggerMeta);
   }
 
-  const lorebookMetaRef = module.lorebook;
-  if (
-    typeof lorebookMetaRef === "string" &&
-    lorebookMetaRef.startsWith("__BUILD_FROM__:")
-  ) {
-    const metaRef = lorebookMetaRef.slice("__BUILD_FROM__:".length);
-    const lorebookMeta = readJson<LorebookPackMeta>(
-      resolveProjectPath(projectDir, metaRef)
-    );
-    module.lorebook = buildLorebookEntries(projectDir, lorebookMeta);
-  }
-
-  const regexMetaRef = module.regex;
-  if (
-    typeof regexMetaRef === "string" &&
-    regexMetaRef.startsWith("__BUILD_FROM__:")
-  ) {
-    const metaRef = regexMetaRef.slice("__BUILD_FROM__:".length);
-    const regexMeta = readJson<RegexPackMeta>(
-      resolveProjectPath(projectDir, metaRef)
-    );
-    module.regex = buildRegexEntries(projectDir, regexMeta);
-  }
+  module.lorebook = buildLorebookEntries(projectDir, lorebookMeta);
+  module.regex = buildRegexEntries(projectDir);
 
   const bgRef = module.backgroundEmbedding;
   if (typeof bgRef === "string" && bgRef.startsWith("__SOURCE__:")) {

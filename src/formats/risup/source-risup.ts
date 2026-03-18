@@ -165,39 +165,31 @@ export function buildPresetSources(projectDir: string): void {
     }
   }
 
-  const promptTemplateRef = preset.promptTemplate;
-  if (
-    typeof promptTemplateRef === "string" &&
-    promptTemplateRef.startsWith("__BUILD_FROM__:")
-  ) {
-    const meta = readJson<PromptTemplatePackMeta>(
-      resolveProjectPath(
-        projectDir,
-        promptTemplateRef.slice("__BUILD_FROM__:".length)
-      )
+  preset.promptTemplate = listRelativeFiles(
+    projectDir,
+    `${PRESET_SRC_DIR}/prompt-template`,
+    ".json"
+  ).map((jsonFile) => {
+    const entry = readJson<Record<string, unknown>>(
+      resolveProjectPath(projectDir, jsonFile)
     );
-    preset.promptTemplate = meta.items.map((item) => {
-      const entry = readJson<Record<string, unknown>>(
-        resolveProjectPath(projectDir, item.jsonFile)
-      );
-      if (item.textFile) {
-        entry.text = readText(resolveProjectPath(projectDir, item.textFile));
-      }
-      return entry;
-    });
-  }
+    const textFile = jsonFile.replace(/\.json$/i, ".md");
+    const textPath = resolveProjectPath(projectDir, textFile);
+    if (existsSync(textPath)) {
+      entry.text = readText(textPath);
+    }
+    return entry;
+  });
 
-  const regexRef = preset.regex;
-  if (typeof regexRef === "string" && regexRef.startsWith("__BUILD_FROM__:")) {
-    const meta = readJson<PresetRegexPackMeta>(
-      resolveProjectPath(projectDir, regexRef.slice("__BUILD_FROM__:".length))
-    );
-    preset.regex = meta.items.map((item) =>
-      readJson<Record<string, unknown>>(
-        resolveProjectPath(projectDir, item.sourceFile)
-      )
-    );
-  }
+  preset.regex = listRelativeFiles(
+    projectDir,
+    `${PRESET_SRC_DIR}/regex`,
+    ".json"
+  ).map((sourceFile) =>
+    readJson<Record<string, unknown>>(
+      resolveProjectPath(projectDir, sourceFile)
+    )
+  );
 
   writeJson(join(projectDir, PRESET_DIST_JSON_PATH), preset);
 }
@@ -305,4 +297,68 @@ function uniqueSourceFile(
     }
     suffix += 1;
   }
+}
+
+function listRelativeFiles(
+  projectDir: string,
+  relativeDir: string,
+  extension: string
+): string[] {
+  return walkRelativeFiles(
+    join(projectDir, relativeDir),
+    relativeDir.replace(/\\/g, "/"),
+    extension.toLowerCase()
+  );
+}
+
+function walkRelativeFiles(
+  directory: string,
+  relativeDir: string,
+  extension: string
+): string[] {
+  if (!existsSync(directory)) {
+    return [];
+  }
+
+  const entries = readdirSync(directory, { withFileTypes: true }).sort(
+    (left, right) => compareWorkspaceName(left.name, right.name)
+  );
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const relativePath = join(relativeDir, entry.name).replace(/\\/g, "/");
+    const absolutePath = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkRelativeFiles(absolutePath, relativePath, extension));
+      continue;
+    }
+    if (entry.isFile() && entry.name.toLowerCase().endsWith(extension)) {
+      files.push(relativePath);
+    }
+  }
+
+  return files;
+}
+
+function compareWorkspaceName(left: string, right: string): number {
+  const leftKey = buildSortKey(left);
+  const rightKey = buildSortKey(right);
+  const baseDiff = leftKey.base.localeCompare(rightKey.base, "en", {
+    sensitivity: "base"
+  });
+  if (baseDiff !== 0) {
+    return baseDiff;
+  }
+  if (leftKey.suffix !== rightKey.suffix) {
+    return leftKey.suffix - rightKey.suffix;
+  }
+  return left.localeCompare(right, "en", { sensitivity: "base" });
+}
+
+function buildSortKey(value: string): { base: string; suffix: number } {
+  const match = /^(.*?)(?:_(\d+))?(?:\.[^.]+)?$/i.exec(value);
+  return {
+    base: (match?.[1] ?? value).toLowerCase(),
+    suffix: Number(match?.[2] ?? "1")
+  };
 }

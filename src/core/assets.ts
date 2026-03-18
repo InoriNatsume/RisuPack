@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export type AssetMediaKind = "image" | "audio" | "video" | "binary";
@@ -69,6 +69,16 @@ export function planAssetFile(
 export function writeAssetFile(path: string, bytes: Buffer): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, bytes);
+}
+
+export function listRelativeAssetFiles(
+  absoluteRoot: string,
+  projectRelativeRoot: string
+): string[] {
+  return walkRelativeAssetFiles(
+    absoluteRoot,
+    projectRelativeRoot.replace(/\\/g, "/")
+  );
 }
 
 export function detectAssetExtension(
@@ -217,4 +227,55 @@ function createUniqueRelativePath(
 
 function toPosix(value: string): string {
   return value.replace(/\\/g, "/");
+}
+
+function walkRelativeAssetFiles(
+  absoluteDir: string,
+  relativeDir: string
+): string[] {
+  if (!existsSync(absoluteDir)) {
+    return [];
+  }
+
+  const entries = readdirSync(absoluteDir, { withFileTypes: true }).sort(
+    (left, right) => compareWorkspaceName(left.name, right.name)
+  );
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const relativePath = toPosix(join(relativeDir, entry.name));
+    const absolutePath = join(absoluteDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkRelativeAssetFiles(absolutePath, relativePath));
+      continue;
+    }
+    if (entry.isFile() && entry.name !== ".gitignore") {
+      files.push(relativePath);
+    }
+  }
+
+  return files;
+}
+
+function compareWorkspaceName(left: string, right: string): number {
+  const leftKey = buildSortKey(left);
+  const rightKey = buildSortKey(right);
+  const baseDiff = leftKey.base.localeCompare(rightKey.base, "en", {
+    sensitivity: "base"
+  });
+  if (baseDiff !== 0) {
+    return baseDiff;
+  }
+  if (leftKey.suffix !== rightKey.suffix) {
+    return leftKey.suffix - rightKey.suffix;
+  }
+  return left.localeCompare(right, "en", { sensitivity: "base" });
+}
+
+function buildSortKey(value: string): { base: string; suffix: number } {
+  const match = /^(.*?)(?:_(\d+))?(?:\.[^.]+)?$/i.exec(value);
+  return {
+    base: (match?.[1] ?? value).toLowerCase(),
+    suffix: Number(match?.[2] ?? "1")
+  };
 }

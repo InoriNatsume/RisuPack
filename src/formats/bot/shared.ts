@@ -62,6 +62,41 @@ export function applyEditableData<T extends CardLike>(
   return nextCard;
 }
 
+export function stripEditableData<T extends CardLike>(card: T): T {
+  const nextCard = structuredClone(card);
+  if (!nextCard.data) {
+    return nextCard;
+  }
+
+  const data = nextCard.data as Record<string, unknown>;
+  delete data.name;
+  delete data.description;
+  delete data.first_mes;
+  delete data.alternate_greetings;
+  delete data.post_history_instructions;
+
+  if (!data.extensions || typeof data.extensions !== "object") {
+    return nextCard;
+  }
+
+  const extensions = data.extensions as Record<string, unknown>;
+  if (!extensions.risuai || typeof extensions.risuai !== "object") {
+    return nextCard;
+  }
+
+  const risuai = extensions.risuai as Record<string, unknown>;
+  delete risuai.backgroundHTML;
+  delete risuai.defaultVariables;
+  if (Object.keys(risuai).length === 0) {
+    delete extensions.risuai;
+  }
+  if (Object.keys(extensions).length === 0) {
+    delete data.extensions;
+  }
+
+  return nextCard;
+}
+
 export function writeJson(path: string, value: unknown): void {
   writeFileSync(path, JSON.stringify(value, null, 2) + "\n", "utf-8");
 }

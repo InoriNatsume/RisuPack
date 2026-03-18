@@ -8,6 +8,20 @@ export interface BotEditableData {
   defaultVariables: string;
 }
 
+export interface CardPackMeta {
+  version: 2;
+  editableFields: {
+    name: string;
+    description: string;
+    firstMessage: string;
+    additionalFirstMessagesDir: string;
+    globalNote: string;
+    defaultVariables: string;
+    css: string;
+  };
+  preservedCard: unknown;
+}
+
 export interface PngAssetRecord {
   chunkKey: string;
   assetIndex: string;

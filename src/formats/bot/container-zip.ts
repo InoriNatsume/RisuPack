@@ -2,7 +2,11 @@ import AdmZip from "adm-zip";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 
-import { planAssetFile, writeAssetFile } from "../../core/assets.js";
+import {
+  listRelativeAssetFiles,
+  planAssetFile,
+  writeAssetFile
+} from "../../core/assets.js";
 import { readProjectMeta, writeProjectMeta } from "../../core/project-meta.js";
 import {
   resolveProjectPath,
@@ -25,7 +29,6 @@ import {
   BUILT_CARD_PATH,
   BUILT_MODULE_PATH,
   CARD_PACK_DIR,
-  CARD_RAW_PATH,
   MODULE_PROJECT_DIR,
   PRESERVED_DIR,
   X_META_DIR
@@ -43,7 +46,7 @@ export async function extractZipContainer(
     "charx" | "png" | "jpg" | "jpeg"
   >,
   container: BotContainerInfo
-): Promise<void> {
+): Promise<CardLike> {
   const inputBytes = readFileSync(inputPath);
   const zipBytes = getZipBytes(inputBytes, container);
   const zip = new AdmZip(zipBytes);
@@ -71,7 +74,6 @@ export async function extractZipContainer(
     version: 1
   };
   writeProjectMeta(projectDir, projectMeta);
-  writeJson(join(projectDir, CARD_RAW_PATH), card);
   const assetDisplayMap = readCardAssetDisplayMap(card);
   const usedAssetPaths = new Set<string>();
 
@@ -170,6 +172,7 @@ export async function extractZipContainer(
   };
   writeJson(join(projectDir, BOT_META_PATH), botMeta);
   writeAssetsGitignore(projectDir, ASSETS_DIR);
+  return card;
 }
 
 function sanitizeArchiveEntryPath(entryName: string): string {
@@ -220,11 +223,7 @@ export async function buildZipContainer(
     zip.addFile("module.risum", moduleBytes);
   }
 
-  const assetsToPack =
-    botMeta.botAssets?.map((asset) => ({
-      path: asset.path,
-      sourcePath: asset.sourcePath
-    })) ?? botMeta.assets.map((asset) => ({ path: asset, sourcePath: asset }));
+  const assetsToPack = mapZipAssetsForBuild(projectDir, botMeta);
 
   for (const asset of assetsToPack) {
     const data = readFileSync(resolveProjectPath(projectDir, asset.path));
@@ -290,4 +289,100 @@ function getZipBytes(inputBytes: Buffer, container: BotContainerInfo): Buffer {
 
 function assertNever(value: never): never {
   throw new Error(`처리할 수 없는 값입니다: ${String(value)}`);
+}
+
+function mapZipAssetsForBuild(
+  projectDir: string,
+  botMeta: BotMeta
+): Array<{ path: string; sourcePath: string }> {
+  const currentAssetPaths = listRelativeAssetFiles(
+    resolveProjectPath(projectDir, botMeta.assetRoot),
+    botMeta.assetRoot
+  );
+  const previousRecords =
+    botMeta.botAssets?.map((asset, index) => ({
+      index,
+      path: asset.path,
+      sourcePath: asset.sourcePath,
+      originalName: asset.originalName
+    })) ??
+    botMeta.assets.map((asset, index) => ({
+      index,
+      path: asset,
+      sourcePath: asset,
+      originalName: basename(asset)
+    }));
+
+  return assignWorkspaceAssets(currentAssetPaths, previousRecords).map(
+    ({ path, record }) => ({
+      path,
+      sourcePath: record?.sourcePath ?? path
+    })
+  );
+}
+
+function assignWorkspaceAssets<
+  T extends { path: string; originalName?: string }
+>(
+  currentPaths: string[],
+  previousRecords: T[]
+): Array<{ path: string; record?: T }> {
+  const indexedRecords = previousRecords.map((record, index) => ({
+    ...record,
+    index
+  }));
+  const byPath = new Map(indexedRecords.map((record) => [record.path, record]));
+  const byStem = new Map<string, Array<T & { index: number }>>();
+  indexedRecords.forEach((record) => {
+    const stemKeys = new Set([
+      stemFromPath(record.path),
+      stemFromPath(record.originalName ?? record.path)
+    ]);
+    for (const key of stemKeys) {
+      if (!key) {
+        continue;
+      }
+      const items = byStem.get(key) ?? [];
+      items.push(record);
+      byStem.set(key, items);
+    }
+  });
+
+  const results: Array<{ path: string; record?: T }> = [];
+  const used = new Set<number>();
+  const orderedPrevious = indexedRecords;
+
+  for (const path of currentPaths) {
+    const exact = byPath.get(path);
+    if (exact && !used.has(exact.index)) {
+      used.add(exact.index);
+      results.push({ path, record: exact });
+      continue;
+    }
+
+    const stemMatches = byStem.get(stemFromPath(path)) ?? [];
+    const availableStem = stemMatches.find((item) => !used.has(item.index));
+    if (availableStem) {
+      used.add(availableStem.index);
+      results.push({ path, record: availableStem });
+      continue;
+    }
+
+    const nextByOrder = orderedPrevious.find((item) => !used.has(item.index));
+    if (nextByOrder) {
+      used.add(nextByOrder.index);
+      results.push({ path, record: nextByOrder });
+      continue;
+    }
+
+    results.push({ path });
+  }
+
+  return results;
+}
+
+function stemFromPath(value: string): string {
+  return basename(value)
+    .replace(/\.[^.]+$/, "")
+    .toLowerCase();
 }

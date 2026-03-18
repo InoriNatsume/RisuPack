@@ -2,11 +2,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-import type { BotEditableData } from "../../types/bot.js";
+import type { BotEditableData, CardPackMeta } from "../../types/bot.js";
 import type { CardLike } from "./shared.js";
 import {
   applyEditableData,
   readJson,
+  stripEditableData,
   toEditableData,
   writeJson
 } from "./shared.js";
@@ -34,11 +35,11 @@ export function extractCardSources(projectDir: string, card: CardLike): void {
   mkdirSync(cardPackDir, { recursive: true });
 
   const editable = toEditableData(card);
-  writeJson(join(projectDir, CARD_RAW_PATH), card);
   writeJson(join(projectDir, CARD_META_PATH), {
-    version: 1,
-    editableFields: CARD_SOURCES
-  });
+    version: 2,
+    editableFields: CARD_SOURCES,
+    preservedCard: stripEditableData(card)
+  } satisfies CardPackMeta);
 
   writeText(join(cardSrcDir, CARD_SOURCES.name), editable.name);
   writeText(join(cardSrcDir, CARD_SOURCES.description), editable.description);
@@ -58,7 +59,7 @@ export function extractCardSources(projectDir: string, card: CardLike): void {
 export function buildCardFromSources<T extends CardLike>(
   projectDir: string
 ): T {
-  const rawCard = readJson<T>(join(projectDir, CARD_RAW_PATH));
+  const rawCard = readCardBase<T>(projectDir);
   const editable = readCardEditableSources(projectDir);
   return applyEditableData(rawCard, editable);
 }
@@ -131,4 +132,16 @@ function readRequiredText(path: string, label: string): string {
 function writeText(path: string, content: string): void {
   const normalized = content.replace(/\r\n/g, "\n");
   writeFileSync(path, normalized, "utf-8");
+}
+
+function readCardBase<T extends CardLike>(projectDir: string): T {
+  const metaPath = join(projectDir, CARD_META_PATH);
+  if (existsSync(metaPath)) {
+    const meta = readJson<Partial<CardPackMeta>>(metaPath);
+    if (meta.preservedCard && typeof meta.preservedCard === "object") {
+      return structuredClone(meta.preservedCard as T);
+    }
+  }
+
+  return readJson<T>(join(projectDir, CARD_RAW_PATH));
 }
