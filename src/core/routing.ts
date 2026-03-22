@@ -29,7 +29,7 @@ export async function routeExtract(
 export async function routeBuild(
   projectDir: string,
   outputPath?: string
-): Promise<void> {
+): Promise<string> {
   const meta = readProjectMeta(projectDir);
 
   switch (meta.kind) {

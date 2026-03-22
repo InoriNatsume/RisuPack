@@ -1,7 +1,8 @@
 import AdmZip from "adm-zip";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 
+import { assignWorkspaceAssets } from "../../core/asset-reconcile.js";
 import {
   listRelativeAssetFiles,
   planAssetFile,
@@ -12,16 +13,18 @@ import {
   resolveProjectPath,
   toProjectRelativePath
 } from "../../core/project-paths.js";
+import {
+  readJson,
+  writeAssetsGitignore,
+  writeJson
+} from "../../core/json-files.js";
+import { replaceExtension } from "../../core/path-utils.js";
 import type { BotAssetRecord, BotMeta } from "../../types/bot.js";
 import type { ProjectMeta } from "../../types/project.js";
 import type { BotContainerInfo } from "./container.js";
 import {
   extensionForFormat,
-  readJson,
-  replaceExtension,
   readCardAssetDisplayMap,
-  writeAssetsGitignore,
-  writeJson,
   type CardLike
 } from "./shared.js";
 import {
@@ -194,7 +197,7 @@ function sanitizeArchiveEntryPath(entryName: string): string {
 export async function buildZipContainer(
   projectDir: string,
   outputPath?: string
-): Promise<void> {
+): Promise<string> {
   const botMeta = readJson<BotMeta>(join(projectDir, BOT_META_PATH));
   const projectMeta = readProjectMeta(projectDir);
 
@@ -227,21 +230,21 @@ export async function buildZipContainer(
 
   for (const asset of assetsToPack) {
     const data = readFileSync(resolveProjectPath(projectDir, asset.path));
-    zip.addFile(asset.sourcePath, data);
+    zip.addFile(sanitizeArchiveEntryPath(asset.sourcePath), data);
   }
 
   for (const metaFile of botMeta.xMetaFiles) {
     const data = readFileSync(
       resolveProjectPath(projectDir, join("pack", metaFile))
     );
-    zip.addFile(metaFile, data);
+    zip.addFile(sanitizeArchiveEntryPath(metaFile), data);
   }
 
   for (const preservedFile of botMeta.preservedZipFiles ?? []) {
     const data = readFileSync(
       resolveProjectPath(projectDir, join("pack", preservedFile))
     );
-    zip.addFile(preservedFile, data);
+    zip.addFile(sanitizeArchiveEntryPath(preservedFile), data);
   }
 
   const finalOutput =
@@ -254,7 +257,7 @@ export async function buildZipContainer(
         extensionForFormat(botMeta.format)
       )
     );
-  mkdirSync(join(finalOutput, ".."), { recursive: true });
+  mkdirSync(dirname(finalOutput), { recursive: true });
 
   const zipBytes = zip.toBuffer();
   if (
@@ -262,13 +265,14 @@ export async function buildZipContainer(
     botMeta.preservedContainerPrefixFile
   ) {
     const prefix = readFileSync(
-      join(projectDir, botMeta.preservedContainerPrefixFile)
+      resolveProjectPath(projectDir, botMeta.preservedContainerPrefixFile)
     );
     writeFileSync(finalOutput, Buffer.concat([prefix, zipBytes]));
-    return;
+    return finalOutput;
   }
 
   writeFileSync(finalOutput, zipBytes);
+  return finalOutput;
 }
 
 function getZipBytes(inputBytes: Buffer, container: BotContainerInfo): Buffer {
@@ -319,70 +323,4 @@ function mapZipAssetsForBuild(
       sourcePath: record?.sourcePath ?? path
     })
   );
-}
-
-function assignWorkspaceAssets<
-  T extends { path: string; originalName?: string }
->(
-  currentPaths: string[],
-  previousRecords: T[]
-): Array<{ path: string; record?: T }> {
-  const indexedRecords = previousRecords.map((record, index) => ({
-    ...record,
-    index
-  }));
-  const byPath = new Map(indexedRecords.map((record) => [record.path, record]));
-  const byStem = new Map<string, Array<T & { index: number }>>();
-  indexedRecords.forEach((record) => {
-    const stemKeys = new Set([
-      stemFromPath(record.path),
-      stemFromPath(record.originalName ?? record.path)
-    ]);
-    for (const key of stemKeys) {
-      if (!key) {
-        continue;
-      }
-      const items = byStem.get(key) ?? [];
-      items.push(record);
-      byStem.set(key, items);
-    }
-  });
-
-  const results: Array<{ path: string; record?: T }> = [];
-  const used = new Set<number>();
-  const orderedPrevious = indexedRecords;
-
-  for (const path of currentPaths) {
-    const exact = byPath.get(path);
-    if (exact && !used.has(exact.index)) {
-      used.add(exact.index);
-      results.push({ path, record: exact });
-      continue;
-    }
-
-    const stemMatches = byStem.get(stemFromPath(path)) ?? [];
-    const availableStem = stemMatches.find((item) => !used.has(item.index));
-    if (availableStem) {
-      used.add(availableStem.index);
-      results.push({ path, record: availableStem });
-      continue;
-    }
-
-    const nextByOrder = orderedPrevious.find((item) => !used.has(item.index));
-    if (nextByOrder) {
-      used.add(nextByOrder.index);
-      results.push({ path, record: nextByOrder });
-      continue;
-    }
-
-    results.push({ path });
-  }
-
-  return results;
-}
-
-function stemFromPath(value: string): string {
-  return basename(value)
-    .replace(/\.[^.]+$/, "")
-    .toLowerCase();
 }

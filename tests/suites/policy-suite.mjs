@@ -1,8 +1,11 @@
 import {
+  closeSync,
   existsSync,
+  openSync,
   mkdirSync,
   readFileSync,
   rmSync,
+  truncateSync,
   writeFileSync
 } from "node:fs";
 import { join, resolve } from "node:path";
@@ -16,6 +19,7 @@ import {
   assertExists,
   createStoredZip,
   createSyntheticBotArchive,
+  createSyntheticJpegZipBotArchive,
   readJson,
   ROOT,
   runCli,
@@ -25,8 +29,19 @@ import {
 
 export async function runPolicySuite() {
   assertInspectWorksOutsideRoot();
+  assertCharxJpegContainerAccepted();
+  assertCharxPngContainerRejected();
+  assertJpegExtensionMismatchRejected();
+  assertInvalidRisumHeaderRejected();
+  await assertInvalidRisupresetHeaderRejected();
+  assertLargeInputRequiresExplicitApproval();
+  assertWorkspaceModeRejectsMultipleInputs();
+  assertWorkspaceExtractFlow();
+  assertWorkspaceExtractPreservesCustomSkill();
   assertZipSlipRejected();
   assertBotBuildPathTraversalRejected();
+  assertBotPreservedModulePathTraversalRejected();
+  assertBotPreservedPrefixPathTraversalRejected();
   await assertRisumBuildPathTraversalRejected();
   await assertLorebookTraversalSafe();
   await assertLorebookExtractionUsesMarkdown();
@@ -49,6 +64,256 @@ function assertInspectWorksOutsideRoot() {
   const otherCwd = join(ROOT, "workspace", "scratch", "outside-cwd");
   mkdirSync(otherCwd, { recursive: true });
   runCli(["inspect", inputPath], otherCwd);
+}
+
+function assertCharxJpegContainerAccepted() {
+  const caseRoot = join(WORK_ROOT, "charx-jpeg-container");
+  const inputPath = join(caseRoot, "sample.charx");
+  const outputDir = join(caseRoot, "extracted");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, createSyntheticJpegZipBotArchive());
+
+  runCli(["extract", inputPath, outputDir]);
+  assertExists(
+    join(outputDir, "project.meta.json"),
+    "charx jpeg container: extract succeeds"
+  );
+}
+
+function assertJpegExtensionMismatchRejected() {
+  const caseRoot = join(WORK_ROOT, "jpeg-extension-mismatch");
+  const inputPath = join(caseRoot, "sample.jpg");
+  const outputDir = join(caseRoot, "extracted");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, createSyntheticBotArchive());
+
+  const result = spawnSync(
+    process.execPath,
+    [resolve(ROOT, "dist", "cli", "main.js"), "extract", inputPath, outputDir],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("JPEG 확장자 mismatch 입력이 거부되지 않았습니다.");
+  }
+}
+
+function assertCharxPngContainerRejected() {
+  const caseRoot = join(WORK_ROOT, "charx-png-container-rejected");
+  const inputPath = join(caseRoot, "sample.charx");
+  const outputDir = join(caseRoot, "extracted");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(
+    inputPath,
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0ioAAAAASUVORK5CYII=",
+      "base64"
+    )
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    [resolve(ROOT, "dist", "cli", "main.js"), "extract", inputPath, outputDir],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("charx 확장자의 PNG 청크 입력이 거부되지 않았습니다.");
+  }
+}
+
+function assertInvalidRisumHeaderRejected() {
+  const caseRoot = join(WORK_ROOT, "invalid-risum-header");
+  const inputPath = join(caseRoot, "sample.risum");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, Buffer.from("not-risum", "utf-8"));
+
+  const result = spawnSync(
+    process.execPath,
+    [resolve(ROOT, "dist", "cli", "main.js"), "inspect", inputPath],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("잘못된 risum 헤더가 거부되지 않았습니다.");
+  }
+}
+
+async function assertInvalidRisupresetHeaderRejected() {
+  const caseRoot = join(WORK_ROOT, "invalid-risupreset-header");
+  const inputPath = join(caseRoot, "sample.risupreset");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, Buffer.from("not-risupreset", "utf-8"));
+
+  const result = spawnSync(
+    process.execPath,
+    [resolve(ROOT, "dist", "cli", "main.js"), "inspect", inputPath],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("잘못된 risupreset 헤더가 거부되지 않았습니다.");
+  }
+}
+
+function assertLargeInputRequiresExplicitApproval() {
+  const caseRoot = join(WORK_ROOT, "large-input-confirmation");
+  const inputPath = join(caseRoot, "huge.risum");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  const fd = openSync(inputPath, "w");
+  closeSync(fd);
+  truncateSync(inputPath, 500 * 1024 * 1024 + 1);
+
+  const result = spawnSync(
+    process.execPath,
+    [resolve(ROOT, "dist", "cli", "main.js"), "inspect", inputPath],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("대용량 입력 확인 없이 inspect가 실행되었습니다.");
+  }
+  if (!result.stderr.includes("--yes-large-input")) {
+    throw new Error("대용량 입력 확인 안내가 출력되지 않았습니다.");
+  }
+}
+
+function assertWorkspaceModeRejectsMultipleInputs() {
+  const caseRoot = join(WORK_ROOT, "workspace-mode-multiple-inputs");
+  const projectDir = join(caseRoot, "workspace");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(join(projectDir, "imports"), { recursive: true });
+  writeFileSync(
+    join(projectDir, "imports", "a.charx"),
+    createSyntheticBotArchive()
+  );
+  writeFileSync(
+    join(projectDir, "imports", "b.charx"),
+    createSyntheticBotArchive()
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(ROOT, "dist", "cli", "main.js"),
+      "workspace",
+      "extract",
+      projectDir
+    ],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+
+  if (result.status === 0) {
+    throw new Error(
+      "여러 staged 입력이 있는 workspace extract가 거부되지 않았습니다."
+    );
+  }
+}
+
+function assertWorkspaceExtractFlow() {
+  const caseRoot = join(WORK_ROOT, "workspace-extract-flow");
+  const inputPath = join(caseRoot, "sample.charx");
+  const projectDir = join(caseRoot, "workspace");
+  const customAgentsPath = join(projectDir, "AGENTS.md");
+  const generatedSkillPath = join(
+    projectDir,
+    ".agents",
+    "skills",
+    "risu-bot-workspace",
+    "SKILL.md"
+  );
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  mkdirSync(projectDir, { recursive: true });
+  writeFileSync(inputPath, createSyntheticBotArchive());
+
+  writeFileSync(customAgentsPath, "# custom agents\n", "utf-8");
+  runCli(["workspace", "stage-input", inputPath, projectDir]);
+  runCli(["workspace", "extract", projectDir]);
+  runCli(["workspace", "build", projectDir]);
+
+  assertExists(
+    join(projectDir, "project.meta.json"),
+    "workspace extract: project meta exists"
+  );
+  assertExists(
+    join(projectDir, "imports", "sample.charx"),
+    "workspace extract: staged input remains in imports"
+  );
+  assertExists(
+    join(projectDir, "dist", "sample.charx"),
+    "workspace build: output is written to dist"
+  );
+  assertEqual(
+    readFileSync(customAgentsPath, "utf-8"),
+    "# custom agents\n",
+    "workspace extract: custom AGENTS.md is preserved"
+  );
+  assertExists(
+    generatedSkillPath,
+    "workspace extract: skill template is generated"
+  );
+  assertEqual(
+    readFileSync(generatedSkillPath, "utf-8").includes("src/card/"),
+    true,
+    "workspace extract: skill template keeps bot-specific editable areas"
+  );
+  assertEqual(
+    readFileSync(generatedSkillPath, "utf-8")
+      .toLowerCase()
+      .includes("embedded `module.risum`"),
+    true,
+    "workspace extract: skill template keeps bot-specific embedded module note"
+  );
+  assertEqual(
+    readFileSync(customAgentsPath, "utf-8").includes(
+      ".agents\\skills\\risu-bot-workspace\\SKILL.md"
+    ) ||
+      readFileSync(customAgentsPath, "utf-8").includes(
+        ".agents/skills/risu-bot-workspace/SKILL.md"
+      ),
+    false,
+    "workspace extract: custom AGENTS.md remains untouched"
+  );
+}
+
+function assertWorkspaceExtractPreservesCustomSkill() {
+  const caseRoot = join(WORK_ROOT, "workspace-custom-skill");
+  const inputPath = join(caseRoot, "sample.charx");
+  const projectDir = join(caseRoot, "workspace");
+  const customSkillPath = join(
+    projectDir,
+    ".agents",
+    "skills",
+    "risu-bot-workspace",
+    "SKILL.md"
+  );
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, createSyntheticBotArchive());
+
+  mkdirSync(join(projectDir, ".agents", "skills", "risu-bot-workspace"), {
+    recursive: true
+  });
+  writeFileSync(customSkillPath, "# custom bot skill\n", "utf-8");
+  runCli(["workspace", "stage-input", inputPath, projectDir]);
+  runCli(["workspace", "extract", projectDir]);
+
+  assertEqual(
+    readFileSync(customSkillPath, "utf-8"),
+    "# custom bot skill\n",
+    "workspace extract: custom bot skill is preserved"
+  );
 }
 
 function assertZipSlipRejected() {
@@ -122,6 +387,78 @@ function assertBotBuildPathTraversalRejected() {
   );
   if (result.status === 0) {
     throw new Error("봇 build 경로 탈출 입력이 거부되지 않았습니다.");
+  }
+}
+
+function assertBotPreservedModulePathTraversalRejected() {
+  const caseRoot = join(WORK_ROOT, "security-bot-preserved-module-path");
+  const inputPath = join(caseRoot, "sample.charx");
+  const projectDir = join(caseRoot, "project");
+  const outsidePath = join(caseRoot, "secret.txt");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(outsidePath, "secret", "utf-8");
+  writeFileSync(inputPath, createSyntheticBotArchive());
+
+  runCli(["extract", inputPath, projectDir]);
+
+  const botMetaPath = join(projectDir, "pack", "bot.meta.json");
+  const botMeta = readJson(botMetaPath);
+  botMeta.preservedModuleFile = "../secret.txt";
+  writeFileSync(botMetaPath, JSON.stringify(botMeta, null, 2) + "\n", "utf-8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(ROOT, "dist", "cli", "main.js"),
+      "build",
+      projectDir,
+      join(caseRoot, "result.charx")
+    ],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("보존 module 파일 경로 탈출 입력이 거부되지 않았습니다.");
+  }
+}
+
+function assertBotPreservedPrefixPathTraversalRejected() {
+  const caseRoot = join(WORK_ROOT, "security-bot-preserved-prefix-path");
+  const inputPath = join(caseRoot, "sample.jpg");
+  const projectDir = join(caseRoot, "project");
+  const outsidePath = join(caseRoot, "secret-prefix.bin");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(outsidePath, "secret-prefix", "utf-8");
+  writeFileSync(
+    inputPath,
+    Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      createSyntheticBotArchive()
+    ])
+  );
+
+  runCli(["extract", inputPath, projectDir]);
+
+  const botMetaPath = join(projectDir, "pack", "bot.meta.json");
+  const botMeta = readJson(botMetaPath);
+  botMeta.preservedContainerPrefixFile = "../secret-prefix.bin";
+  writeFileSync(botMetaPath, JSON.stringify(botMeta, null, 2) + "\n", "utf-8");
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      resolve(ROOT, "dist", "cli", "main.js"),
+      "build",
+      projectDir,
+      join(caseRoot, "result.jpg")
+    ],
+    { cwd: ROOT, encoding: "utf-8" }
+  );
+  if (result.status === 0) {
+    throw new Error("보존 JPEG prefix 경로 탈출 입력이 거부되지 않았습니다.");
   }
 }
 

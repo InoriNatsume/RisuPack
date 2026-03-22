@@ -1,8 +1,9 @@
 import { buildZipContainer, extractZipContainer } from "./container-zip.js";
 import { buildPngContainer, extractPngContainer } from "./container-png.js";
+import { readJson } from "../../core/json-files.js";
 import type { SupportedInputFormat } from "../../types/project.js";
 import { detectBotContainer } from "./container.js";
-import { readJson, type CardLike } from "./shared.js";
+import type { CardLike } from "./shared.js";
 import { BOT_META_PATH } from "./paths.js";
 import { buildBotSources, extractBotSources } from "./source-bot.js";
 
@@ -35,7 +36,7 @@ export async function extractBot(
 export async function buildBot(
   projectDir: string,
   outputPath?: string
-): Promise<void> {
+): Promise<string> {
   await buildBotSources(projectDir);
   const container = readJson<{
     container: "zip-charx" | "jpeg-zip" | "png-chunks";

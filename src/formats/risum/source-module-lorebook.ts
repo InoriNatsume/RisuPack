@@ -1,16 +1,18 @@
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { basename, join, parse } from "node:path";
 
+import { normalizeRelativePath } from "../../core/path-utils.js";
+import { compareWorkspaceName } from "../../core/workspace-naming.js";
 import { MODULE_SRC_DIR } from "./paths.js";
 import {
   asArray,
   asString,
-  omitKeys,
   readSource,
   safeFilename,
   uniqueSourceFile,
   writeText
 } from "./source-module-fs.js";
+import { omitKeys } from "../../core/object-utils.js";
 import type {
   LorebookPackMeta,
   LorebookPackMetaItem
@@ -79,6 +81,7 @@ export function buildLorebookEntries(
         continue;
       }
       const entry = structuredClone(item.data);
+      entry.content = typeof entry.content === "string" ? entry.content : "";
       const key = asString(entry.key);
       if (key) {
         usedKeys.add(key);
@@ -112,7 +115,8 @@ export function buildLorebookEntries(
     built.push({
       mode: "folder",
       key: folderKey,
-      comment: folderName
+      comment: folderName,
+      content: ""
     });
   }
 
@@ -238,10 +242,6 @@ function rootEntryDir(): string {
   return `${MODULE_SRC_DIR}/lorebook/_root`;
 }
 
-function normalizeRelativePath(value: string | undefined): string | undefined {
-  return value ? value.replace(/\\/g, "/") : undefined;
-}
-
 function createUniqueLorebookKey(base: string, usedKeys: Set<string>): string {
   const normalizedBase = safeFilename(base) || "entry";
   let candidate = normalizedBase;
@@ -252,27 +252,4 @@ function createUniqueLorebookKey(base: string, usedKeys: Set<string>): string {
   }
   usedKeys.add(candidate);
   return candidate;
-}
-
-function compareWorkspaceName(left: string, right: string): number {
-  const leftKey = buildSortKey(left);
-  const rightKey = buildSortKey(right);
-  const baseDiff = leftKey.base.localeCompare(rightKey.base, "en", {
-    sensitivity: "base"
-  });
-  if (baseDiff !== 0) {
-    return baseDiff;
-  }
-  if (leftKey.suffix !== rightKey.suffix) {
-    return leftKey.suffix - rightKey.suffix;
-  }
-  return left.localeCompare(right, "en", { sensitivity: "base" });
-}
-
-function buildSortKey(value: string): { base: string; suffix: number } {
-  const match = /^(.*?)(?:_(\d+))?(?:\.[^.]+)?$/i.exec(value);
-  return {
-    base: (match?.[1] ?? value).toLowerCase(),
-    suffix: Number(match?.[2] ?? "1")
-  };
 }

@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { compareWorkspaceName } from "./workspace-naming.js";
+
 export type AssetMediaKind = "image" | "audio" | "video" | "binary";
 
 export interface NormalizeAssetInput {
@@ -255,27 +257,4 @@ function walkRelativeAssetFiles(
   }
 
   return files;
-}
-
-function compareWorkspaceName(left: string, right: string): number {
-  const leftKey = buildSortKey(left);
-  const rightKey = buildSortKey(right);
-  const baseDiff = leftKey.base.localeCompare(rightKey.base, "en", {
-    sensitivity: "base"
-  });
-  if (baseDiff !== 0) {
-    return baseDiff;
-  }
-  if (leftKey.suffix !== rightKey.suffix) {
-    return leftKey.suffix - rightKey.suffix;
-  }
-  return left.localeCompare(right, "en", { sensitivity: "base" });
-}
-
-function buildSortKey(value: string): { base: string; suffix: number } {
-  const match = /^(.*?)(?:_(\d+))?(?:\.[^.]+)?$/i.exec(value);
-  return {
-    base: (match?.[1] ?? value).toLowerCase(),
-    suffix: Number(match?.[2] ?? "1")
-  };
 }

@@ -12,6 +12,9 @@ import {
   makeSourceRef,
   parseSourceRef
 } from "../../core/source-refs.js";
+import { readJson, writeJson } from "../../core/json-files.js";
+import { omitKeys } from "../../core/object-utils.js";
+import { normalizeRelativePath } from "../../core/path-utils.js";
 import {
   readPreferredMetaJson,
   writeMirroredMetaJson
@@ -26,7 +29,6 @@ import type {
   PresetRegexPackMeta,
   PromptTemplatePackMeta
 } from "../../types/preset.js";
-import { readJson, writeJson } from "../bot/shared.js";
 import {
   PRESET_DIST_DIR,
   PRESET_DIST_JSON_PATH,
@@ -200,12 +202,6 @@ export function buildPresetSources(projectDir: string): void {
     version: 1 as const,
     items: []
   };
-  writeMirroredMetaJson(
-    projectDir,
-    PROMPT_TEMPLATE_SOURCE_META_PATH,
-    PROMPT_TEMPLATE_META_PATH,
-    promptMeta
-  );
   const regexMeta = readPreferredMetaJson<PresetRegexPackMeta>(
     projectDir,
     PRESET_REGEX_SOURCE_META_PATH,
@@ -214,12 +210,6 @@ export function buildPresetSources(projectDir: string): void {
     version: 1 as const,
     items: []
   };
-  writeMirroredMetaJson(
-    projectDir,
-    PRESET_REGEX_SOURCE_META_PATH,
-    PRESET_REGEX_META_PATH,
-    regexMeta
-  );
 
   preset.promptTemplate = buildPromptTemplateEntries(projectDir, promptMeta);
   preset.regex = buildRegexEntries(projectDir, regexMeta);
@@ -249,15 +239,6 @@ function promptItemSlug(item: Record<string, unknown>, index: number): string {
     asString(item.name)
   ].filter(Boolean);
   return safeWorkspaceName(parts.join("-"));
-}
-
-function omitKeys(
-  value: Record<string, unknown>,
-  keys: string[]
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(value).filter(([key]) => !keys.includes(key))
-  );
 }
 
 function asString(value: unknown): string {
@@ -413,8 +394,4 @@ function buildRegexEntries(
       resolveProjectPath(projectDir, sourceFile)
     )
   );
-}
-
-function normalizeRelativePath(value: string | undefined): string | undefined {
-  return value ? value.replace(/\\/g, "/") : undefined;
 }

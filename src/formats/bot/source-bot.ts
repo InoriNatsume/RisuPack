@@ -8,10 +8,11 @@ import {
 import { join } from "node:path";
 
 import { hasProjectMeta } from "../../core/project-meta.js";
+import { resolveProjectPath } from "../../core/project-paths.js";
+import { readJson } from "../../core/json-files.js";
 import type { BotMeta } from "../../types/bot.js";
 import { buildRisumBytes, extractRisumBytes } from "../risum/index.js";
 import type { CardLike } from "./shared.js";
-import { readJson } from "./shared.js";
 import { buildCardFromSources, extractCardSources } from "./source-card.js";
 import {
   BOT_DIST_DIR,
@@ -31,7 +32,7 @@ export async function extractBotSources(
   const moduleProjectDir = join(projectDir, MODULE_PROJECT_DIR);
   if (botMeta.preservedModuleFile) {
     const moduleBytes = readFileSync(
-      join(projectDir, botMeta.preservedModuleFile)
+      resolveProjectPath(projectDir, botMeta.preservedModuleFile)
     );
     await extractRisumBytes(moduleBytes, "module.risum", moduleProjectDir);
     return;
@@ -60,7 +61,7 @@ export async function buildBotSources(projectDir: string): Promise<void> {
 
   if (botMeta.preservedModuleFile) {
     const moduleBytes = readFileSync(
-      join(projectDir, botMeta.preservedModuleFile)
+      resolveProjectPath(projectDir, botMeta.preservedModuleFile)
     );
     writeFileSync(join(projectDir, BUILT_MODULE_PATH), moduleBytes);
     return;

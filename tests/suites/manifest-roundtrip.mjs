@@ -14,8 +14,14 @@ import {
   WORK_ROOT
 } from "../support/common.mjs";
 
-export function runManifestRoundtripSuite() {
+export function runManifestRoundtripSuite(options = {}) {
+  const requireManifest = options.requireManifest === true;
   if (CASES.length === 0) {
+    if (requireManifest) {
+      throw new Error(
+        `sample roundtrip manifest가 필요합니다: ${SAMPLE_MANIFEST_PATH}`
+      );
+    }
     console.log(
       `[INFO] sample roundtrip cases skipped: manifest not found (${SAMPLE_MANIFEST_PATH})`
     );

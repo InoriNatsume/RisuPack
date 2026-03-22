@@ -6,8 +6,7 @@
 
 - `src/cli/main.ts`: 인자형 CLI
 - `src/cli/interactive.ts`: 대화형 CLI
-- `src/mcp/server.ts`: stdio MCP 서버
-- 세 진입점은 모두 `src/app/commands.ts`를 호출합니다.
+- 두 진입점은 모두 `src/app/commands.ts`를 호출합니다.
 
 ## 상위 계층
 
@@ -24,30 +23,31 @@ src/
 │  ├─ asset-reconcile.ts
 │  ├─ assets.ts
 │  ├─ detect.ts
+│  ├─ input-validation.ts
 │  ├─ inspect.ts
+│  ├─ json-files.ts
+│  ├─ object-utils.ts
+│  ├─ path-utils.ts
 │  ├─ project-meta.ts
 │  ├─ project-paths.ts
 │  ├─ routing.ts
 │  ├─ source-meta.ts
 │  ├─ source-refs.ts
 │  ├─ version.ts
+│  ├─ workspace-files.ts
 │  └─ workspace-naming.ts
 ├─ formats/
 │  ├─ bot/
 │  ├─ risum/
 │  └─ risup/
-├─ mcp/
-│  ├─ access.ts
-│  └─ server.ts
 └─ types/
 ```
 
 ## 책임 구분
 
 - `app/`: 공통 명령 결과 구조와 출력 포맷
-- `cli/`: 사용자 입력과 콘솔 출력
-- `mcp/`: MCP 스키마, 허용 루트 정책, 경로 마스킹
-- `core/`: 포맷 감지, 라우팅, 경로 안전성, 공용 메타/에셋 규칙
+- `cli/`: 직접 명령, staged input 흐름, 콘솔 출력
+- `core/`: 포맷 감지, 입력 검증, JSON/경로/객체 유틸, 경로 안전성, 작업장 scaffold/입력 관리, 공용 메타/에셋 규칙
 - `formats/bot`: 봇 컨테이너와 editable source 처리
 - `formats/risum`: 모듈 컨테이너와 lorebook/regex/trigger source 처리
 - `formats/risup`: 프리셋 컨테이너와 prompt-template/regex source 처리
@@ -58,6 +58,8 @@ src/
 - `src/*.meta.json`은 editable source 메타입니다.
 - `pack/`은 fallback과 재작성용 최소 메타입니다.
 - `pack/` 안의 raw 스냅샷은 참조용일 수 있어도 source of truth는 아닙니다.
+- 작업장 모드에서는 입력 파일을 `imports/`에 staged 한 뒤 extract하고, build 결과는 `dist/`에 씁니다.
+- 작업장용 `AGENTS.md`와 종류별 skill은 번들 zip 자산에서 작업장으로 풀립니다.
 
 ## 꼭 남겨야 하는 예외
 

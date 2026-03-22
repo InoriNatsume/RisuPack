@@ -1,58 +1,59 @@
 # 캐릭터 카드 포맷 (.charx, .png, .jpg)
 
-> **관련 테스트**: `tests/schema.test.ts` → `Charx Schema Validation`
+검증 기준 RisuAI 버전: `Risuai-2026.2.291`
+
+## 1. 지원 컨테이너
+
+| 확장자          | 실제 구조                 | 에셋 포함 |
+| --------------- | ------------------------- | :-------: |
+| `.charx`        | ZIP 아카이브              |    ✅     |
+| `.jpg`, `.jpeg` | JPEG 뒤에 ZIP payload     |    ✅     |
+| `.png`          | PNG `tEXt` 청크 기반 카드 |    ✅     |
 
 ---
 
-## ⚠️ 중요: 봇 카드 PNG vs AI 이미지 PNG
+## 2. `.charx` / `.jpg` 구조
 
-> 🚨 **가장 흔한 실수**: 봇 카드 파싱과 AI 이미지 EXIF 추출을 혼동함!
+### 2.1 ZIP 내부 구성
 
-| 구분          | 봇 카드 PNG                          | AI 이미지 PNG                                 |
-| ------------- | ------------------------------------ | --------------------------------------------- |
-| **용도**      | 캐릭터 데이터 저장                   | AI 생성 이미지                                |
-| **PNG 청크**  | `chara`, `ccv3`, `chara-ext-asset_N` | `parameters`, `Comment`, `prompt`, `workflow` |
-| **파서**      | `parsePng()`                         | `extractImageMetadata()`                      |
-| **사용 시점** | 파일 드롭 시                         | 에셋 상세 보기 시                             |
+최신 RisuAI 코드 기준으로 실제로 확인되는 항목은 다음입니다.
 
-**코드 위치**:
-
-- 봇 카드 파싱: `src/formats/bot/container-zip.ts`, `src/formats/bot/container-png.ts`
-- AI EXIF 추출: `src/lib/core/exif/` (NAI 스테가노그래피, ComfyUI 워크플로 등)
-
-자세한 내용: [gotchas.md](gotchas.md#봇-카드-vs-ai-이미지-exif-혼동)
-
----
-
-## 1. 지원 포맷
-
-| 확장자          | 구조                    | 에셋 지원 | 파서 함수      |
-| --------------- | ----------------------- | :-------: | -------------- |
-| `.charx`        | ZIP 아카이브            |    ✅     | `parseCharx()` |
-| `.jpg`, `.jpeg` | JPEG + ZIP (CharX-JPEG) |    ✅     | `parseJpeg()`  |
-| `.png`          | tEXt 청크               |    ✅     | `parsePng()`   |
-
-> ⚠️ **주의**: 모든 확장자에 대해 `getFileType()`과 `handleFile()`에서 처리해야 함!  
-> [gotchas.md](gotchas.md#pngjpeg-확장자-처리-누락) 참조
-
----
-
-## 2. CharX (.charx) 구조
-
-### 2.1 ZIP 내부 파일
-
-```
+```text
 character.charx (ZIP)
-├── card.json              # 메인 캐릭터 데이터 (CCv3)
-├── card.png               # [선택] 호환용 PNG
-├── module.risum           # [선택] 임베드된 모듈
-└── assets/                # 에셋 파일들
-    └── [type]/[itype]/
-        ├── icon.png
-        └── happy.webp
+├── card.json
+├── module.risum           # 선택
+├── assets/
+│   └── ...
+└── x_meta/
+    └── *.json             # PNG 메타 보존용, 선택
 ```
 
-### 2.2 card.json 스키마
+- `card.json`은 CCv3 카드 JSON입니다.
+- `module.risum`은 lorebook, regex, trigger를 별도 모듈로 분리한 경우에 포함됩니다.
+- `assets/`는 `embeded://...` URI가 가리키는 실제 파일입니다.
+- `x_meta/`는 ZIP 안 PNG 자산의 원본 텍스트 메타를 보존할 때 사용됩니다.
+
+### 2.2 `.jpg` / `.jpeg`
+
+`charx-jpeg`는 일반 JPEG 뒤에 ZIP payload를 붙인 형식입니다.
+
+```text
+┌─────────────────────────────┐
+│ JPEG 데이터                 │
+├─────────────────────────────┤
+│ ZIP 데이터                  │
+│   ├── card.json             │
+│   ├── module.risum          │
+│   ├── assets/...            │
+│   └── x_meta/...            │
+└─────────────────────────────┘
+```
+
+ZIP 시작점은 `PK\x03\x04` 시그니처로 찾습니다.
+
+---
+
+## 3. `card.json` 구조
 
 ```typescript
 interface CharXCardJson {
@@ -62,7 +63,6 @@ interface CharXCardJson {
 }
 
 interface CCv3Data {
-  // 기본 필드
   name: string;
   description: string;
   personality: string;
@@ -70,314 +70,231 @@ interface CCv3Data {
   first_mes: string;
   mes_example: string;
 
-  // CCv3 에셋
-  assets: CCv3Asset[];
-
-  // 로어북 (character_book)
   character_book?: CharacterBook;
-
-  // RisuAI 확장
+  assets?: CCv3Asset[];
   extensions?: {
     risuai?: RisuAIExtension;
+    depth_prompt?: { depth: number; prompt: string };
+    [key: string]: unknown;
   };
+
+  creator_notes?: string;
+  system_prompt?: string;
+  post_history_instructions?: string;
+  alternate_greetings?: string[];
+  tags?: string[];
+  creator?: string;
+  character_version?: string;
+  group_only_greetings?: string[];
+  nickname?: string;
+  source?: unknown[];
+  creation_date?: number;
+  modification_date?: number;
 }
 ```
 
+### 3.1 로어북 위치
+
+- 로어북은 `data.character_book`에 직렬화됩니다.
+- 카드 내부 `extensions.risuai`에 `globalLore`가 직접 저장되는 구조는 최신 코드 기준이 아닙니다.
+
+### 3.2 `module.risum` 분리
+
+`.charx`와 `.jpg/.jpeg` export에서는 다음 데이터가 `module.risum`으로 분리될 수 있습니다.
+
+- `globalLore`
+- `customScripts`
+- `triggerscript`
+
+즉 카드 JSON만 보고 전체 기능이 끝난다고 가정하면 안 됩니다.
+
 ---
 
-## 3. 에셋 시스템
+## 4. 에셋
 
-### 3.1 CCv3Asset 구조
+### 4.1 CCv3Asset
 
 ```typescript
 interface CCv3Asset {
-  type: string; // 에셋 타입
-  uri: string; // 에셋 위치
-  name: string; // 에셋 이름
-  ext: string; // 파일 확장자
+  type: string;
+  uri: string;
+  name: string;
+  ext: string;
 }
 ```
 
-### 3.2 에셋 URI 형식
+### 4.2 실제로 확인되는 URI 형식
 
-| 형식                   | 설명                  | 사용처    |
-| ---------------------- | --------------------- | --------- |
-| `ccdefault:`           | 기본 아이콘 (스킵)    | 모든 포맷 |
-| `embeded://assets/...` | ZIP 내 경로           | CharX     |
-| `__asset:N`            | tEXt 청크 인덱스      | PNG       |
-| `~risuasset:hash:ext`  | **⚠️ 캐시 해시 참조** | CharX     |
+| 형식                   | 의미                     |
+| ---------------------- | ------------------------ |
+| `ccdefault:`           | 기본 아이콘              |
+| `embeded://assets/...` | ZIP 내부 파일            |
+| `__asset:N`            | PNG 청크 인덱스 참조     |
+| `data:...;base64,...`  | JSON 내 직접 내장 데이터 |
 
-> **⚠️ 주의**: `~risuasset:`는 문서에서 누락되기 쉬움. [gotchas.md](gotchas.md#에셋-uri-형식)에서 상세 확인.
+### 4.3 에셋 타입
 
-### 3.3 에셋 타입
+| type           | 의미                  |
+| -------------- | --------------------- |
+| `icon`         | 프로필 아이콘         |
+| `emotion`      | 감정 이미지           |
+| `background`   | 배경 이미지           |
+| `audio`        | 오디오                |
+| `video`        | 비디오                |
+| `portrait`     | VN 초상화             |
+| `additional`   | 일반 추가 에셋        |
+| `other`        | 기타                  |
+| `x-risu-asset` | RisuAI 내부 에셋 타입 |
 
-| type               | 설명                    |
-| ------------------ | ----------------------- |
-| `icon`             | 프로필 아이콘           |
-| `emotion`          | 감정 이미지             |
-| `background`       | 배경 이미지             |
-| `audio`            | 오디오 파일             |
-| `video`            | 비디오 파일             |
-| `portrait`         | VN 초상화               |
-| `additional`       | 추가 에셋               |
-| `other`            | 기타                    |
-| **`x-risu-asset`** | ⚠️ **RisuAI 내부 타입** |
+`type`은 미디어 포맷이 아니라 역할이므로, 이미지/오디오/비디오는 `ext`나 실제 바이트 시그니처로 다시 판별하는 편이 안전합니다.
 
-> **⚠️ 주의**: `asset.type === 'image'`로 이미지 판별 불가! [gotchas.md](gotchas.md#에셋-타입-판별)에서 상세 확인.
+### 4.4 `asset.ext` 주의
+
+V3 카드에서는 `x-risu-asset`의 `ext`가 실제 확장자가 아니라 이름처럼 들어가는 경우가 있습니다.
+
+```json
+{
+  "type": "x-risu-asset",
+  "name": "fertilization_success",
+  "uri": "__asset:2",
+  "ext": "fertilization_success"
+}
+```
+
+이 경우 `ext`를 그대로 신뢰하기보다 magic bytes로 실제 포맷을 추정하는 편이 안전합니다.
 
 ---
 
-## 4. 로어북 구조 (character_book)
+## 5. `extensions.risuai`
 
-### 4.1 기본 구조
+최신 코드에서 카드 import/export 경로로 직접 확인되는 필드는 다음 범위입니다.
+
+```typescript
+interface RisuAIExtension {
+  bias?: [string, number][];
+  viewScreen?: "emotion" | "none" | "imggen" | "vn";
+  utilityBot?: boolean;
+  customScripts?: CustomScript[];
+  triggerscript?: TriggerScript[];
+  additionalAssets?: [name: string, uri: string, fileName?: string][];
+  emotions?: [name: string, uri: string][];
+  backgroundHTML?: string;
+  license?: string;
+  private?: boolean;
+  additionalText?: string;
+  virtualscript?: string;
+  largePortrait?: boolean;
+  lorePlus?: boolean;
+  inlayViewScreen?: boolean;
+  lowLevelAccess?: boolean;
+  defaultVariables?: string;
+  prebuiltAssetCommand?: boolean;
+  prebuiltAssetExclude?: string[];
+  prebuiltAssetStyle?: string;
+  newGenData?: {
+    prompt: string;
+    negative: string;
+    instructions: string;
+    emotionInstructions: string;
+  };
+  vits?: Record<string, string>;
+}
+```
+
+주의할 점:
+
+- 필드명은 `customscript`가 아니라 `customScripts`입니다.
+- 레거시 PNG/V2 계열은 `emotionImages`가 아니라 `emotions`를 씁니다.
+- `modules`는 최신 카드 확장 필드 설명으로는 맞지 않습니다.
+
+---
+
+## 6. `character_book`
 
 ```typescript
 interface CharacterBook {
   entries: LoreBookEntry[] | Record<string, LoreBookEntry>;
+  scan_depth?: number;
+  token_budget?: number;
+  recursive_scanning?: boolean;
+  extensions?: {
+    risu_fullWordMatching?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 interface LoreBookEntry {
-  id?: string;
-  name?: string; // 폴더용
-  comment?: string; // 엔트리용
-
-  // 트리거
-  keys: string[]; // 키워드
+  keys: string[];
   secondary_keys?: string[];
   selective?: boolean;
-
-  // 컨텐츠
   content: string;
-
-  // 설정
-  enabled: boolean;
   insertion_order: number;
-
-  // 폴더 관련
+  comment?: string;
+  name?: string;
+  id?: string;
   mode?: "normal" | "constant" | "folder" | "multiple" | "child";
-  folder?: string; // ⚠️ 폴더 ID (특수 형식!)
+  folder?: string;
 }
 ```
 
-### 4.2 폴더 ID 형식
+### 6.1 폴더 ID 형식
 
-> **⚠️ 중요**: [gotchas.md](gotchas.md#폴더-id-형식)에서 상세 확인
+폴더에 속한 엔트리의 `folder` 값은 단순 UUID가 아니라 다음 형식입니다.
 
-```typescript
-// 폴더 엔트리
-{
-  mode: 'folder',
-  name: '설정 폴더',
-  id: '69913e3e-80d9-4010-8ee1-979a6d7c173a'
-}
-
-// 폴더에 속한 엔트리
-{
-  folder: '\uf000folder:69913e3e-80d9-4010-8ee1-979a6d7c173a'
-  //      ↑ 특수 유니코드 prefix!
-}
+```text
+\uf000folder:<folder-id>
 ```
 
-**폴더 ID 추출 방법**:
-
-```typescript
-const extractFolderId = (folder: string): string | null => {
-  const match = folder.match(/folder:(.+)/);
-  return match ? match[1] : null;
-};
-```
+즉 폴더 참조를 해석할 때는 `folder:` 뒤 값을 다시 추출해야 합니다.
 
 ---
 
-## 5. RisuAI 확장
+## 7. PNG 카드
 
-```typescript
-interface RisuAIExtension {
-  // 로어북 (globalLore와 동일 구조)
-  globalLore?: LoreBookEntry[];
+### 7.1 사용 청크
 
-  // 스크립트
-  customscript?: CustomScript[]; // Regex
-  triggerscript?: TriggerScript[]; // Trigger
-
-  // 에셋
-  additionalAssets?: [name, path, ext][];
-  emotionImages?: [name, path][];
-
-  // 표시
-  viewScreen?: "emotion" | "none" | "imggen" | "vn";
-
-  // 모듈
-  modules?: string[];
-}
-```
-
----
-
-## 6. CharX-JPEG (.jpg, .jpeg)
-
-JPEG 이미지 뒤에 ZIP 데이터가 연결된 형식.
-
-### 6.1 바이너리 구조
-
-```
-┌─────────────────────────────┐
-│ JPEG 데이터                 │  FF D8 ... FF D9
-├─────────────────────────────┤
-│ ZIP 데이터 (CharX)          │  50 4B 03 04 (PK..)
-│   ├── card.json             │
-│   └── assets/...            │
-└─────────────────────────────┘
-```
-
-### 6.2 ZIP 시작점 찾기
-
-```typescript
-function findZipStart(data: Uint8Array): number {
-  for (let i = 0; i < data.length - 4; i++) {
-    if (
-      data[i] === 0x50 &&
-      data[i + 1] === 0x4b &&
-      data[i + 2] === 0x03 &&
-      data[i + 3] === 0x04
-    ) {
-      return i;
-    }
-  }
-  return -1;
-}
-```
-
----
-
-## 7. PNG 카드 (.png)
-
-PNG tEXt 청크에 Base64로 인코딩된 데이터.
-
-### 7.1 청크 구조
-
-| 키워드               | 내용                     |
+| 키                   | 의미                     |
 | -------------------- | ------------------------ |
-| `chara`              | CCv2/v3 JSON (Base64)    |
-| `ccv3`               | CCv3 JSON (우선, Base64) |
-| `chara-ext-asset_:N` | 에셋 바이너리 (Base64)   |
+| `chara`              | V2/구형 카드 JSON Base64 |
+| `ccv3`               | V3 카드 JSON Base64      |
+| `chara-ext-asset_:N` | 에셋 Base64              |
 
-> **주의**: 청크 키워드는 `chara-ext-asset_:0` 또는 `chara-ext-asset_0` 두 형태 모두 존재함
+실제 import 코드는 `chara-ext-asset_:`와 `chara-ext-asset_` 두 형태를 모두 읽습니다.
 
-### 7.2 V2 vs V3 카드 처리
+### 7.2 `ccv3` 우선
 
-> **⚠️ 중요**: PNG 파일에는 V2(`chara`)와 V3(`ccv3`) 청크가 **동시에** 존재할 수 있음!
+PNG 안에 `chara`와 `ccv3`가 같이 들어있을 수 있으며, 이 경우 `ccv3`가 우선됩니다.
 
-```typescript
-// 우선순위: ccv3 > chara
-if (keyword === "ccv3" || !charaData) {
-  charaData = valueBytes;
-}
+### 7.3 V2/V3 에셋 위치 차이
+
+| 카드 버전 | 메타데이터 위치                                                        |
+| --------- | ---------------------------------------------------------------------- |
+| V3        | `card.data.assets[]`                                                   |
+| V2        | `card.data.extensions.risuai.emotions[]`, `additionalAssets[]`, `vits` |
+
+### 7.4 인코딩
+
+PNG `tEXt` 청크는 Latin1 바이트로 저장되지만, 내용은 보통 `Base64(JSON UTF-8)`입니다.
+
+즉 디코드 순서는 다음처럼 잡는 편이 안전합니다.
+
+```text
+Latin1 bytes -> Base64 string -> UTF-8 JSON
 ```
-
-### 7.3 V2 에셋 처리 (additionalAssets)
-
-V2 카드는 에셋을 `data.extensions.risuai.additionalAssets`에 저장:
-
-```typescript
-// V2 additionalAssets 구조
-interface RisuAIExtension {
-  additionalAssets?: [name: string, uri: string, fileName?: string][];
-  emotions?: [name: string, uri: string][];
-}
-```
-
-**V3 vs V2 에셋 위치**:
-| 버전 | 에셋 메타데이터 위치 |
-|------|---------------------|
-| V3 | `card.data.assets[]` |
-| V2 | `card.data.extensions.risuai.additionalAssets[]` |
-
-### 7.4 에셋 확장자 추정
-
-> **⚠️ 주의**: V3 `asset.ext` 필드가 잘못된 값일 수 있음! (RisuAI 버그)
-
-```typescript
-// 예: ext가 "fertilization_success"로 저장된 경우
-{ type: 'x-risu-asset', name: 'fertilization_success', ext: 'fertilization_success' }
-
-// 해결: Magic bytes로 실제 확장자 추정
-function guessExtension(data: Uint8Array, fallbackExt: string): string {
-  const validExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', ...]);
-  if (validExts.has(fallbackExt.toLowerCase())) return fallbackExt;
-
-  // Magic bytes 확인
-  if (data[0] === 0x89 && data[1] === 0x50) return 'png';
-  if (data[0] === 0xFF && data[1] === 0xD8) return 'jpg';
-  if (data[0] === 0x52 && data[1] === 0x49 && data[8] === 0x57 && data[9] === 0x45) return 'webp';
-  // ...
-  return 'bin';
-}
-```
-
-### 7.5 인코딩 처리
-
-> **⚠️ 중요**: PNG tEXt 청크는 Latin1로 인코딩됨!
-
-```typescript
-// 올바른 디코딩 순서
-const base64Str = new TextDecoder("latin1").decode(valueBytes);
-const jsonBytes = base64ToUint8Array(base64Str); // atob() 사용
-const jsonStr = new TextDecoder("utf-8").decode(jsonBytes); // 최종 JSON은 UTF-8
-const card = JSON.parse(jsonStr);
-```
-
-### 7.6 에셋 인덱스 매핑
-
-```json
-{
-  "assets": [
-    { "type": "icon", "uri": "ccdefault:", "name": "", "ext": "png" },
-    { "type": "emotion", "uri": "__asset:0", "name": "happy", "ext": "png" },
-    { "type": "emotion", "uri": "__asset:1", "name": "sad", "ext": "webp" }
-  ]
-}
-```
-
-→ `chara-ext-asset_:0` = happy.png, `chara-ext-asset_:1` = sad.webp
 
 ---
 
-## 8. 관련 테스트
+## 8. 주의할 점
 
-```typescript
-// tests/schema.test.ts
-
-describe("Charx Schema Validation", () => {
-  it("should parse lorebook entries with folder structure correctly");
-  // → 폴더 ID 추출 검증
-
-  it("should have assets with proper extension detection");
-  // → 에셋 확장자 기반 타입 검증
-
-  it("should parse additionalAssets with correct path format");
-  // → 에셋 경로 형식 검증
-});
-
-describe("PNG Character Card Schema Validation", () => {
-  it("should parse PNG card successfully");
-  // → V2/V3 PNG 카드 파싱
-
-  it("should normalize V2 cards to V3");
-  // → V2 → V3 정규화 검증
-
-  it("should parse embedded assets from tEXt chunks");
-  // → 에셋 청크 파싱 및 확장자 추정
-
-  it("should correctly decode UTF-8 text (한글 등)");
-  // → 인코딩 문제 검증
-});
-```
+- 카드 파싱과 AI 이미지 EXIF 추출은 별개 문제입니다.
+- `.charx` / `.jpg`는 `card.json`만 보지 말고 `module.risum` 존재를 같이 확인해야 합니다.
+- PNG 카드는 `ccv3` 우선, `chara` fallback 구조를 가정하는 편이 안전합니다.
+- `x_meta/`는 에셋 폴더가 아니라 PNG 메타 보존용 내부 폴더입니다.
 
 ---
 
 ## 참조
 
-- [gotchas.md](gotchas.md) - 파싱 함정 및 해결책
-- [risum.md](risum.md) - 모듈 포맷
+- [gotchas.md](gotchas.md)
+- [risum.md](risum.md)
 - [CCv3 Spec](https://github.com/kwaroran/character-card-spec-v3)

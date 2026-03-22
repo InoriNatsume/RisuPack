@@ -1,6 +1,5 @@
 import type { AssetMediaKind } from "../../core/assets.js";
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
 import type { BotEditableData, BotMeta } from "../../types/bot.js";
 
@@ -95,33 +94,6 @@ export function stripEditableData<T extends CardLike>(card: T): T {
   }
 
   return nextCard;
-}
-
-export function writeJson(path: string, value: unknown): void {
-  writeFileSync(path, JSON.stringify(value, null, 2) + "\n", "utf-8");
-}
-
-export function readJson<T>(path: string): T {
-  return JSON.parse(readFileSync(path, "utf-8")) as T;
-}
-
-export function writeAssetsGitignore(
-  projectDir: string,
-  assetRoot: string
-): void {
-  // 에셋은 추출하지만 기본 Git 추적 대상에서는 제외합니다.
-  writeFileSync(
-    join(projectDir, assetRoot, ".gitignore"),
-    "*\n!.gitignore\n",
-    "utf-8"
-  );
-}
-
-export function replaceExtension(
-  fileName: string,
-  nextExtension: string
-): string {
-  return fileName.replace(/\.[^.]+$/, "") + nextExtension;
 }
 
 export function extensionForFormat(format: BotMeta["format"]): string {

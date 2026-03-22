@@ -1,7 +1,0 @@
-interface:
-  display_name: "Risu Workspace Tools"
-  short_description: "Edit and validate RisuCMP bot/module workflows."
-  default_prompt: "Use $risu-workspace-tools to update or validate this repository's RisuAI extract/build workflow."
-
-policy:
-  allow_implicit_invocation: true

@@ -31,6 +31,11 @@ risu-workspace-tools build C:\work\bot
 risu-workspace-tools build C:\work\module
 risu-workspace-tools build C:\work\preset
 
+# workspace staged input flow
+risu-workspace-tools workspace stage-input C:\input\bot.charx C:\Users\<user>\RisuWorkspaces\bot
+risu-workspace-tools workspace extract C:\Users\<user>\RisuWorkspaces\bot
+risu-workspace-tools workspace build C:\Users\<user>\RisuWorkspaces\bot
+
 # inspect
 risu-workspace-tools inspect C:\input\module.risum
 
@@ -39,20 +44,8 @@ npm run interactive
 ```
 
 `extract`와 `build`는 `--json`을 지원합니다.
-
-## MCP
-
-MCP 서버는 stdio로 실행합니다.
-
-```powershell
-npm run mcp -- --allow-root C:\Users\<user>\RisuWorkspaces --allow-root C:\input
-```
-
-- MCP는 최소 한 개의 `--allow-root` 또는 `RISU_MCP_ALLOWED_ROOTS`가 필요합니다.
-- 허용 루트 밖 경로는 거부됩니다.
-- 응답 경로는 `<allowed-root>/...` 형태로 마스킹됩니다.
-
-자세한 내용은 [docs/mcp.md](./docs/mcp.md)를 봐주세요.
+`extract`와 `inspect`는 500MB 이상 입력 파일에서 확인을 요구하며, 비대화형 환경에서는 `--yes-large-input`으로 승인할 수 있습니다.
+`workspace stage-input`도 같은 대용량 입력 확인 정책을 사용합니다.
 
 ## 작업 폴더 원칙
 
@@ -60,7 +53,10 @@ npm run mcp -- --allow-root C:\Users\<user>\RisuWorkspaces --allow-root C:\input
 - 본문 외 순서/매핑 정보는 `src/*.meta.json`이 우선합니다.
 - `pack/`은 빌드에 필요한 최소 메타와 보존 데이터입니다.
 - `pack/`은 직접 수정하지 않는 쪽을 기본으로 잡습니다.
-- `pack/*.meta.json`은 fallback이고, 없으면 현재 `src/` 스캔 결과로 복원합니다.
+- `pack/*.meta.json`은 fallback이고, build는 이를 읽기만 하며 누락된 `src/*.meta.json`을 자동 재생성하지 않습니다.
+- 입력 파일은 확장자뿐 아니라 실제 컨테이너/헤더도 확인합니다. `.charx`는 ZIP형과 JPEG+ZIP만 허용합니다.
+- `workspace extract`는 `imports/`의 입력 파일을 풀고, 작업장용 `AGENTS.md`와 종류별 skill도 함께 배치합니다.
+- 작업장용 `AGENTS.md`와 skill은 번들 zip 자산에서 풀리며, 이미 같은 파일이 있으면 그대로 둡니다.
 
 꼭 기억할 예외:
 
@@ -76,9 +72,9 @@ RisuCMP/
 │  ├─ cli/
 │  ├─ core/
 │  ├─ formats/
-│  ├─ mcp/
 │  └─ types/
 ├─ docs/
+├─ templates/
 ├─ tests/
 ├─ vendor/
 ├─ workspace/
@@ -90,14 +86,16 @@ RisuCMP/
 ```powershell
 npm run check
 npm test
+npm run test:manifest   # sample manifest가 있을 때만
 npm run format
 ```
 
-`npm test`는 synthetic roundtrip, 경로 탈출 방지, source 누락 거부, MCP 허용 루트 정책을 검증합니다.
+`npm test`는 synthetic roundtrip, 경로 탈출 방지, source 누락 거부, 작업장 staged input 흐름을 검증합니다.
+실샘플 roundtrip 검증은 `workspace/samples/roundtrip-manifest.json`이 있을 때 `npm run test:manifest`로 별도 실행합니다.
 
 ## 문서
 
+- 포맷 문서 검증 기준 RisuAI 버전: `Risuai-2026.2.291`
 - [프로젝트 구조](docs/project-structure.md)
 - [작업장 구조](docs/workspace-structure.md)
-- [MCP](docs/mcp.md)
 - [포맷 메모](docs/format/)

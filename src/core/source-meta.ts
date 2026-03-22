@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 
-import { readJson, writeJson } from "../formats/bot/shared.js";
+import { readJson, writeJson } from "./json-files.js";
 import { resolveProjectPath } from "./project-paths.js";
 
 export function readPreferredMetaJson<T>(

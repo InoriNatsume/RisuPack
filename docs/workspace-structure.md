@@ -6,8 +6,12 @@
 
 - 작업장은 저장소 밖 경로를 권장합니다.
 - 사람이 수정하는 기준은 `src/`와 `assets/`입니다.
+- `imports/`는 staged 입력 보관용이며, source 편집 대상으로 보지 않습니다.
 - `src/*.meta.json`은 본문 외 순서/매핑 정보를 담는 editable source 메타입니다.
 - `pack/`은 직접 수정 대상이 아니라 빌드 보조 메타입니다.
+- CLI/웹뷰어 흐름에서는 입력 파일을 `imports/`에 staged 한 뒤 `workspace extract`로 사용합니다.
+- 언패킹 후 작업장 루트에는 작업장용 `AGENTS.md`와 종류별 skill 하나가 생성될 수 있습니다.
+- 작업장에 이미 같은 파일이 있으면 기존 파일을 유지합니다.
 
 ## 작업장 예시
 
@@ -23,7 +27,13 @@ C:\Users\<user>\Workspaces\  ← 작업장 루트
 
 ```text
 my-bot/
+├─ AGENTS.md
+├─ .agents/
+│  └─ skills/
+│     └─ risu-bot-workspace/
+│        └─ SKILL.md
 ├─ project.meta.json
+├─ imports/
 ├─ src/
 │  ├─ card/
 │  └─ module/           # embedded module.risum이 있을 때만 생성
@@ -36,7 +46,13 @@ my-bot/
 
 ```text
 my-module/
+├─ AGENTS.md
+├─ .agents/
+│  └─ skills/
+│     └─ risu-module-workspace/
+│        └─ SKILL.md
 ├─ project.meta.json
+├─ imports/
 ├─ src/
 │  ├─ lorebook/
 │  ├─ lorebook.meta.json
@@ -53,7 +69,13 @@ my-module/
 
 ```text
 my-preset/
+├─ AGENTS.md
+├─ .agents/
+│  └─ skills/
+│     └─ risu-preset-workspace/
+│        └─ SKILL.md
 ├─ project.meta.json
+├─ imports/
 ├─ src/
 │  ├─ prompt-template/
 │  ├─ prompt-template.meta.json
@@ -86,8 +108,10 @@ my-preset/
 
 기본적으로 비추적 권장 대상:
 
+- `imports/`
 - `pack/`
 - `assets/`
 - `dist/`
 
 새 환경에서 `pack/`이나 `assets/`가 없으면 원본 파일에서 다시 `extract`하는 편이 가장 안전합니다.
+build는 누락된 `src/*.meta.json`을 자동으로 다시 만들지 않습니다.

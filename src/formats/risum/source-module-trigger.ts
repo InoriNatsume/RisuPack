@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
+import { readJson, writeJson } from "../../core/json-files.js";
 import { resolveProjectPath } from "../../core/project-paths.js";
-import { readJson, writeJson } from "../bot/shared.js";
 import { MODULE_SRC_DIR } from "./paths.js";
 import { asArray, readSource, writeText } from "./source-module-fs.js";
 import type {

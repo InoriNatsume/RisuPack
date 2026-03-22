@@ -2,14 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
+import { readJson, writeJson } from "../../core/json-files.js";
 import type { BotEditableData, CardPackMeta } from "../../types/bot.js";
 import type { CardLike } from "./shared.js";
 import {
   applyEditableData,
-  readJson,
   stripEditableData,
-  toEditableData,
-  writeJson
+  toEditableData
 } from "./shared.js";
 import {
   CARD_META_PATH,

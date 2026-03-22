@@ -1,16 +1,29 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { resolveProjectPath } from "../../core/project-paths.js";
-import { readJson, writeJson } from "../bot/shared.js";
 import {
+  makeBuildFromRef,
+  makeSourceRef,
+  parseBuildFromRef,
+  parseSourceRef
+} from "../../core/source-refs.js";
+import {
+  readPreferredMetaJson,
+  writeMirroredMetaJson
+} from "../../core/source-meta.js";
+import { readJson, writeJson } from "../../core/json-files.js";
+import { resolveProjectPath } from "../../core/project-paths.js";
+import {
+  LOREBOOK_SOURCE_META_PATH,
   LOREBOOK_META_PATH,
   MODULE_DIST_JSON_PATH,
   MODULE_JSON_PATH,
   MODULE_META_PATH,
   MODULE_PACK_DIR,
   MODULE_SRC_DIR,
+  REGEX_SOURCE_META_PATH,
   REGEX_META_PATH,
+  TRIGGER_SOURCE_META_PATH,
   TRIGGER_META_PATH
 } from "./paths.js";
 import {
@@ -35,6 +48,7 @@ import {
 } from "./source-module-trigger.js";
 import type {
   LorebookPackMeta,
+  RegexPackMeta,
   TriggerPackMetaItem
 } from "./source-module-types.js";
 
@@ -44,9 +58,7 @@ export function extractModuleSources(
 ): void {
   const inputPath = join(projectDir, inputFilename);
   if (!existsSync(inputPath)) {
-    throw new Error(
-      `module-vcs extract 입력 파일을 찾을 수 없습니다: ${inputPath}`
-    );
+    throw new Error(`모듈 extract 입력 파일을 찾을 수 없습니다: ${inputPath}`);
   }
 
   const srcDir = join(projectDir, MODULE_SRC_DIR);
@@ -60,13 +72,28 @@ export function extractModuleSources(
   const triggers = asArray<Record<string, unknown>>(module.trigger);
   const triggerMode = detectTriggerMode(triggers);
   const triggerMeta = extractTriggerSources(projectDir, triggers, triggerMode);
-  writeJson(join(projectDir, TRIGGER_META_PATH), triggerMeta);
+  writeMirroredMetaJson(
+    projectDir,
+    TRIGGER_SOURCE_META_PATH,
+    TRIGGER_META_PATH,
+    triggerMeta
+  );
 
   const lorebookMeta = extractLorebookSources(projectDir, module.lorebook);
-  writeJson(join(projectDir, LOREBOOK_META_PATH), lorebookMeta);
+  writeMirroredMetaJson(
+    projectDir,
+    LOREBOOK_SOURCE_META_PATH,
+    LOREBOOK_META_PATH,
+    lorebookMeta
+  );
 
   const regexMeta = extractRegexSources(projectDir, module.regex);
-  writeJson(join(projectDir, REGEX_META_PATH), regexMeta);
+  writeMirroredMetaJson(
+    projectDir,
+    REGEX_SOURCE_META_PATH,
+    REGEX_META_PATH,
+    regexMeta
+  );
 
   const backgroundEmbedding =
     typeof module.backgroundEmbedding === "string"
@@ -94,12 +121,12 @@ export function extractModuleSources(
     metaModule[key] = value;
   }
 
-  metaModule.trigger = `__BUILD_FROM__:${TRIGGER_META_PATH.replace(/\\/g, "/")}`;
+  metaModule.trigger = makeBuildFromRef(TRIGGER_SOURCE_META_PATH);
   metaModule.backgroundEmbedding = backgroundEmbedding
-    ? "__SOURCE__:src/styles/embedding.css"
+    ? makeSourceRef("src/styles/embedding.css")
     : "";
-  metaModule.lorebook = `__BUILD_FROM__:${LOREBOOK_META_PATH.replace(/\\/g, "/")}`;
-  metaModule.regex = `__BUILD_FROM__:${REGEX_META_PATH.replace(/\\/g, "/")}`;
+  metaModule.lorebook = makeBuildFromRef(LOREBOOK_SOURCE_META_PATH);
+  metaModule.regex = makeBuildFromRef(REGEX_SOURCE_META_PATH);
   writeJson(join(projectDir, MODULE_META_PATH), metaModule);
 }
 
@@ -107,30 +134,38 @@ export function buildModuleSources(projectDir: string): void {
   const module = readJson<Record<string, unknown>>(
     join(projectDir, MODULE_META_PATH)
   );
-  const lorebookMeta: LorebookPackMeta = existsSync(
-    join(projectDir, LOREBOOK_META_PATH)
-  )
-    ? readJson<LorebookPackMeta>(join(projectDir, LOREBOOK_META_PATH))
-    : { version: 1 as const, items: [] };
+  const lorebookMeta = readPreferredMetaJson<LorebookPackMeta>(
+    projectDir,
+    LOREBOOK_SOURCE_META_PATH,
+    LOREBOOK_META_PATH
+  ) ?? { version: 1 as const, items: [] };
+  const regexMeta = readPreferredMetaJson<RegexPackMeta>(
+    projectDir,
+    REGEX_SOURCE_META_PATH,
+    REGEX_META_PATH
+  ) ?? { version: 1 as const, items: [] };
 
   const triggerMetaRef = module.trigger;
-  if (
-    typeof triggerMetaRef === "string" &&
-    triggerMetaRef.startsWith("__BUILD_FROM__:")
-  ) {
-    const metaRef = triggerMetaRef.slice("__BUILD_FROM__:".length);
-    const triggerMeta = readJson<TriggerPackMetaItem>(
-      resolveProjectPath(projectDir, metaRef)
+  const preferredTriggerMeta = readPreferredMetaJson<TriggerPackMetaItem>(
+    projectDir,
+    TRIGGER_SOURCE_META_PATH,
+    TRIGGER_META_PATH
+  );
+  if (preferredTriggerMeta) {
+    module.trigger = buildTriggersFromMeta(projectDir, preferredTriggerMeta);
+  } else if (parseBuildFromRef(triggerMetaRef)) {
+    const metaRef = parseBuildFromRef(triggerMetaRef)!;
+    module.trigger = buildTriggersFromMeta(
+      projectDir,
+      readJson<TriggerPackMetaItem>(resolveProjectPath(projectDir, metaRef))
     );
-    module.trigger = buildTriggersFromMeta(projectDir, triggerMeta);
   }
 
   module.lorebook = buildLorebookEntries(projectDir, lorebookMeta);
-  module.regex = buildRegexEntries(projectDir);
+  module.regex = buildRegexEntries(projectDir, regexMeta);
 
-  const bgRef = module.backgroundEmbedding;
-  if (typeof bgRef === "string" && bgRef.startsWith("__SOURCE__:")) {
-    const sourcePath = bgRef.slice("__SOURCE__:".length);
+  const sourcePath = parseSourceRef(module.backgroundEmbedding);
+  if (sourcePath) {
     const css = readSource(projectDir, sourcePath).replace(/\n+$/, "");
     module.backgroundEmbedding = wrapStyle(css);
   }

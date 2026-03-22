@@ -87,34 +87,6 @@ export function extractAssetChunkIndex(key: string): string | null {
   return key.replace("chara-ext-asset_:", "").replace("chara-ext-asset_", "");
 }
 
-export function guessFileExtension(bytes: Buffer, fallback = "bin"): string {
-  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
-    return "png";
-  }
-  if (
-    bytes.length >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
-    return "jpg";
-  }
-  if (
-    bytes.length >= 12 &&
-    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
-    bytes.subarray(8, 12).toString("ascii") === "WEBP"
-  ) {
-    return "webp";
-  }
-  if (bytes.length >= 6) {
-    const head = bytes.subarray(0, 6).toString("ascii");
-    if (head === "GIF87a" || head === "GIF89a") {
-      return "gif";
-    }
-  }
-  return fallback;
-}
-
 function createTextChunk(key: string, value: Buffer): Buffer {
   const keyBytes = Buffer.from(key, "latin1");
   const chunkData = Buffer.concat([keyBytes, Buffer.from([0x00]), value]);

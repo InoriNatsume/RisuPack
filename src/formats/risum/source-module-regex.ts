@@ -1,8 +1,10 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { readJson, writeJson } from "../../core/json-files.js";
+import { normalizeRelativePath } from "../../core/path-utils.js";
 import { resolveProjectPath } from "../../core/project-paths.js";
-import { readJson, writeJson } from "../bot/shared.js";
+import { compareWorkspaceName } from "../../core/workspace-naming.js";
 import { MODULE_SRC_DIR } from "./paths.js";
 import { asArray, safeFilename, uniqueSourceFile } from "./source-module-fs.js";
 import type { RegexPackMeta } from "./source-module-types.js";
@@ -34,9 +36,30 @@ export function extractRegexSources(
 
 export function buildRegexEntries(
   projectDir: string,
-  _regexMeta?: RegexPackMeta
+  regexMeta?: RegexPackMeta
 ): Record<string, unknown>[] {
-  return listRegexSourceFiles(projectDir).map((sourceFile) =>
+  const scannedFiles = listRegexSourceFiles(projectDir);
+  const remainingFiles = new Set(scannedFiles);
+  const orderedFiles: string[] = [];
+
+  for (const item of regexMeta?.items ?? []) {
+    const sourceFile = normalizeRelativePath(item.sourceFile);
+    if (!sourceFile || !remainingFiles.has(sourceFile)) {
+      continue;
+    }
+    orderedFiles.push(sourceFile);
+    remainingFiles.delete(sourceFile);
+  }
+
+  for (const sourceFile of scannedFiles) {
+    if (!remainingFiles.has(sourceFile)) {
+      continue;
+    }
+    orderedFiles.push(sourceFile);
+    remainingFiles.delete(sourceFile);
+  }
+
+  return orderedFiles.map((sourceFile) =>
     readJson<Record<string, unknown>>(
       resolveProjectPath(projectDir, sourceFile)
     )
@@ -71,27 +94,4 @@ function walkJsonFiles(directory: string, relativeDir: string): string[] {
   }
 
   return files;
-}
-
-function compareWorkspaceName(left: string, right: string): number {
-  const leftKey = buildSortKey(left);
-  const rightKey = buildSortKey(right);
-  const baseDiff = leftKey.base.localeCompare(rightKey.base, "en", {
-    sensitivity: "base"
-  });
-  if (baseDiff !== 0) {
-    return baseDiff;
-  }
-  if (leftKey.suffix !== rightKey.suffix) {
-    return leftKey.suffix - rightKey.suffix;
-  }
-  return left.localeCompare(right, "en", { sensitivity: "base" });
-}
-
-function buildSortKey(value: string): { base: string; suffix: number } {
-  const match = /^(.*?)(?:_(\d+))?(?:\.[^.]+)?$/i.exec(value);
-  return {
-    base: (match?.[1] ?? value).toLowerCase(),
-    suffix: Number(match?.[2] ?? "1")
-  };
 }

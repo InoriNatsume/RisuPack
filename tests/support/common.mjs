@@ -34,10 +34,14 @@ export function resetWorkRoot() {
   mkdirSync(WORK_ROOT, { recursive: true });
 }
 
-export function runCli(args, cwd = ROOT) {
+export function runCli(args, cwd = ROOT, extraEnv = {}) {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     cwd,
-    encoding: "utf-8"
+    encoding: "utf-8",
+    env: {
+      ...process.env,
+      ...extraEnv
+    }
   });
 
   if (result.status !== 0) {
@@ -117,6 +121,13 @@ export function createSyntheticBotArchive() {
       name: "assets/demo.png",
       data: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01])
     }
+  ]);
+}
+
+export function createSyntheticJpegZipBotArchive() {
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+    createSyntheticBotArchive()
   ]);
 }
 

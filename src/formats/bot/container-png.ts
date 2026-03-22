@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
+import { assignWorkspaceAssets } from "../../core/asset-reconcile.js";
 import {
   listRelativeAssetFiles,
   planAssetFile,
@@ -11,16 +12,15 @@ import {
   resolveProjectPath,
   toProjectRelativePath
 } from "../../core/project-paths.js";
+import {
+  readJson,
+  writeAssetsGitignore,
+  writeJson
+} from "../../core/json-files.js";
+import { replaceExtension } from "../../core/path-utils.js";
 import type { ProjectMeta } from "../../types/project.js";
 import type { BotMeta, PngAssetRecord } from "../../types/bot.js";
-import {
-  extensionForFormat,
-  readJson,
-  replaceExtension,
-  writeAssetsGitignore,
-  writeJson,
-  type CardLike
-} from "./shared.js";
+import { extensionForFormat, type CardLike } from "./shared.js";
 import {
   BOT_META_PATH,
   BUILT_CARD_PATH,
@@ -151,7 +151,7 @@ export async function extractPngContainer(
 export async function buildPngContainer(
   projectDir: string,
   outputPath?: string
-): Promise<void> {
+): Promise<string> {
   const botMeta = readJson<BotMeta>(join(projectDir, BOT_META_PATH));
   const projectMeta = readProjectMeta(projectDir);
 
@@ -203,10 +203,11 @@ export async function buildPngContainer(
         extensionForFormat(botMeta.format)
       )
     );
-  mkdirSync(join(finalOutput, ".."), { recursive: true });
+  mkdirSync(dirname(finalOutput), { recursive: true });
 
   const rebuilt = rewritePngTextChunks(basePng, replacementChunks, stripKeys);
   writeFileSync(finalOutput, rebuilt);
+  return finalOutput;
 }
 
 function uniqueCardChunkKeys(keys: PngCardChunkKey[]): PngCardChunkKey[] {
@@ -348,64 +349,4 @@ function mapPngAssetsForBuild(
       chunkKey: `chara-ext-asset_${nextAssetIndex}`
     };
   });
-}
-
-function assignWorkspaceAssets<
-  T extends { path: string; originalName?: string }
->(
-  currentPaths: string[],
-  previousRecords: T[]
-): Array<{ path: string; record?: T }> {
-  const indexedRecords = previousRecords.map((record, index) => ({
-    ...record,
-    index
-  }));
-  const byPath = new Map(indexedRecords.map((record) => [record.path, record]));
-  const byStem = new Map<string, Array<T & { index: number }>>();
-  indexedRecords.forEach((record) => {
-    const stemKeys = new Set([
-      stemFromPath(record.path),
-      stemFromPath(record.originalName ?? record.path)
-    ]);
-    for (const key of stemKeys) {
-      if (!key) {
-        continue;
-      }
-      const items = byStem.get(key) ?? [];
-      items.push(record);
-      byStem.set(key, items);
-    }
-  });
-
-  const used = new Set<number>();
-  const orderedPrevious = indexedRecords;
-
-  return currentPaths.map((path) => {
-    const exact = byPath.get(path);
-    if (exact && !used.has(exact.index)) {
-      used.add(exact.index);
-      return { path, record: exact };
-    }
-
-    const stemMatches = byStem.get(stemFromPath(path)) ?? [];
-    const availableStem = stemMatches.find((item) => !used.has(item.index));
-    if (availableStem) {
-      used.add(availableStem.index);
-      return { path, record: availableStem };
-    }
-
-    const nextByOrder = orderedPrevious.find((item) => !used.has(item.index));
-    if (nextByOrder) {
-      used.add(nextByOrder.index);
-      return { path, record: nextByOrder };
-    }
-
-    return { path };
-  });
-}
-
-function stemFromPath(value: string): string {
-  return basename(value)
-    .replace(/\.[^.]+$/, "")
-    .toLowerCase();
 }

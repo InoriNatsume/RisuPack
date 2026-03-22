@@ -10,6 +10,7 @@ import {
   runInspectCommand
 } from "../app/commands.js";
 import {
+  confirmLargeInputIfNeeded,
   printBuildResult,
   printExtractResult,
   printInspectResult,
@@ -40,6 +41,9 @@ export async function runInteractiveCli(): Promise<void> {
           rl,
           "작업장 폴더 경로를 적어주세요"
         );
+        await confirmLargeInputIfNeeded(inputPath, {
+          ask: (message) => promptYesNo(rl, message)
+        });
         const result = await runExtractCommand(inputPath, projectDir);
         printExtractResult(result);
         return;
@@ -65,6 +69,9 @@ export async function runInteractiveCli(): Promise<void> {
           rl,
           "확인할 입력 파일 경로를 적어주세요"
         );
+        await confirmLargeInputIfNeeded(inputPath, {
+          ask: (message) => promptYesNo(rl, message)
+        });
         const result = await runInspectCommand(inputPath);
         printInspectResult(result);
         return;
@@ -116,6 +123,24 @@ async function promptOptional(
   label: string
 ): Promise<string> {
   return (await rl.question(`${label}\n> `)).trim();
+}
+
+async function promptYesNo(
+  rl: ReturnType<typeof createInterface>,
+  label: string
+): Promise<boolean> {
+  while (true) {
+    const value = (await rl.question(`${label}\n[y/N] > `))
+      .trim()
+      .toLowerCase();
+    if (!value || value === "n" || value === "no") {
+      return false;
+    }
+    if (value === "y" || value === "yes") {
+      return true;
+    }
+    console.log("`y` 또는 `n`으로 답해주세요.");
+  }
 }
 
 const isDirectRun =

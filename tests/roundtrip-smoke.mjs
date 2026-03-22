@@ -9,10 +9,14 @@ main().catch((error) => {
 });
 
 async function main() {
+  const syntheticOnly = process.argv.includes("--synthetic-only");
+  const requireManifest = process.argv.includes("--require-manifest");
   ensureBuilt();
   resetWorkRoot();
 
   await runPolicySuite();
   await runSourcePrioritySuite();
-  runManifestRoundtripSuite();
+  if (!syntheticOnly) {
+    runManifestRoundtripSuite({ requireManifest });
+  }
 }

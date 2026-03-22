@@ -11,13 +11,17 @@
     "prepare": "npm run build",
     "check": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --write .",
-    "test": "npm run build && node tests/roundtrip-smoke.mjs",
-    "cli": "node dist/cli/main.js"
+    "test": "npm run build && node tests/roundtrip-smoke.mjs --synthetic-only",
+    "test:manifest": "npm run build && node tests/roundtrip-smoke.mjs --require-manifest",
+    "test:all": "npm run build && node tests/roundtrip-smoke.mjs",
+    "cli": "node dist/cli/main.js",
+    "interactive": "node dist/cli/interactive.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
     "commander": "^12.1.0",
-    "msgpackr": "^1.11.5"
+    "msgpackr": "^1.11.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",

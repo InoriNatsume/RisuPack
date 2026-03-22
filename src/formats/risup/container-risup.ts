@@ -11,6 +11,7 @@ const RPACK_PATH = resolve(
   "../../../vendor/risu-codec/lib/rpack.mjs"
 );
 const RISUPRESET_KEY = "risupreset";
+const GZIP_SIGNATURE = Buffer.from([0x1f, 0x8b, 0x08]);
 
 export interface DecodedRisupContainer {
   preset: Record<string, unknown>;
@@ -113,4 +114,23 @@ function asUint8Array(value: unknown): Uint8Array {
     return value;
   }
   throw new Error("risup 암호화 데이터가 Uint8Array 형식이 아닙니다.");
+}
+
+export async function assertRisupSignature(
+  inputBytes: Buffer,
+  format: "risup" | "risupreset"
+): Promise<void> {
+  const headerBytes =
+    format === "risup"
+      ? Buffer.from(await decodeRPackBytes(inputBytes.subarray(0, 3)))
+      : inputBytes.subarray(0, 3);
+
+  if (
+    headerBytes.length < GZIP_SIGNATURE.length ||
+    !headerBytes.subarray(0, GZIP_SIGNATURE.length).equals(GZIP_SIGNATURE)
+  ) {
+    throw new Error(
+      `입력 파일의 ${format} 헤더가 올바르지 않습니다. 확장자와 실제 포맷을 확인해주세요.`
+    );
+  }
 }

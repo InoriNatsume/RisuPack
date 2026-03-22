@@ -28,10 +28,11 @@ export async function runSourcePrioritySuite() {
   await assertModuleAssetBuildUsesCurrentWorkspaceFiles();
   await assertPresetSourceScanOverridesPackMeta();
   await assertModuleSourceScanOverridesPackMeta();
+  await assertBuildDoesNotRewriteMissingSourceMeta();
   await assertModuleFolderEntriesPreserveEmptyContent();
   await assertPresetBuildMissingFileRejected();
   assertBotBuildMissingFileRejected();
-  await assertMcpAccessPolicyHelpers();
+  await assertWorkspaceHelpers();
 }
 
 async function assertBotCardBuildIgnoresRawSnapshot() {
@@ -620,59 +621,128 @@ function assertBotBuildMissingFileRejected() {
   }
 }
 
-async function assertMcpAccessPolicyHelpers() {
-  const allowedRoot = join(WORK_ROOT, "mcp-allowed");
-  const allowedTarget = join(allowedRoot, "project", "demo.charx");
-  const deniedTarget = join(WORK_ROOT, "mcp-denied", "demo.charx");
+async function assertWorkspaceHelpers() {
+  const caseRoot = join(WORK_ROOT, "workspace-helpers");
+  const projectDir = join(caseRoot, "demo-workspace");
+  const inputPath = join(caseRoot, "sample.charx");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, createSyntheticBotArchive());
 
   const {
-    assertMcpAccessPolicyConfigured,
-    assertMcpPathAllowed,
-    parseMcpAccessPolicy,
-    redactMcpMessage,
-    redactMcpPath
+    ensureWorkspaceScaffold,
+    resolveWorkspaceInputPath,
+    stageWorkspaceInput
   } = await import(
-    pathToFileURL(resolve(ROOT, "dist", "mcp", "access.js")).href
+    pathToFileURL(resolve(ROOT, "dist", "core", "workspace-files.js")).href
   );
 
-  const emptyPolicy = parseMcpAccessPolicy([], {});
-  let missingRootsRejected = false;
-  try {
-    assertMcpAccessPolicyConfigured(emptyPolicy);
-  } catch {
-    missingRootsRejected = true;
-  }
+  const resolvedProjectDir = ensureWorkspaceScaffold(projectDir);
   assertEqual(
-    emptyPolicy.allowedRoots.length,
-    0,
-    "mcp policy: empty root count"
+    resolve(projectDir),
+    resolvedProjectDir,
+    "workspace helpers: scaffold returns resolved project path"
   );
   assertEqual(
-    missingRootsRejected,
+    existsSync(join(projectDir, "imports")),
     true,
-    "mcp policy: missing allowed roots are rejected"
-  );
-
-  const policy = parseMcpAccessPolicy(["--allow-root", allowedRoot], {});
-  assertEqual(policy.allowedRoots.length, 1, "mcp policy: allowed root count");
-  assertMcpAccessPolicyConfigured(policy);
-  assertMcpPathAllowed(policy, allowedTarget, "input");
-
-  let denied = false;
-  try {
-    assertMcpPathAllowed(policy, deniedTarget, "input");
-  } catch {
-    denied = true;
-  }
-  assertEqual(denied, true, "mcp policy: outside root is rejected");
-  assertEqual(
-    redactMcpPath(policy, allowedTarget),
-    "<allowed-root>/project/demo.charx",
-    "mcp policy: path is redacted"
+    "workspace helpers: imports scaffold exists"
   );
   assertEqual(
-    redactMcpMessage(policy, `오류: ${allowedTarget}`),
-    "오류: <allowed-root>/project/demo.charx",
-    "mcp policy: message is redacted"
+    existsSync(join(projectDir, "dist")),
+    true,
+    "workspace helpers: dist scaffold exists"
+  );
+  const staged = await stageWorkspaceInput(inputPath, projectDir);
+  assertEqual(
+    staged.projectDir,
+    resolve(projectDir),
+    "workspace helpers: staged result returns resolved project path"
+  );
+  assertEqual(
+    resolveWorkspaceInputPath(projectDir),
+    staged.stagedPath,
+    "workspace helpers: resolveWorkspaceInputPath returns staged file"
+  );
+  assertEqual(
+    existsSync(staged.stagedPath),
+    true,
+    "workspace helpers: staged file exists"
+  );
+}
+
+async function assertBuildDoesNotRewriteMissingSourceMeta() {
+  const presetProjectDir = join(WORK_ROOT, "preset-build-no-meta-rewrite");
+  rmSync(presetProjectDir, { recursive: true, force: true });
+
+  const preset = {
+    name: "No Meta Rewrite",
+    promptTemplate: [{ type: "plain", role: "system", text: "hello" }],
+    regex: [{ comment: "sample", type: "editoutput", in: "a", out: "b" }]
+  };
+
+  const { buildPresetSources, extractPresetSources } = await import(
+    pathToFileURL(resolve(ROOT, "dist", "formats", "risup", "source-risup.js"))
+      .href
+  );
+  extractPresetSources(presetProjectDir, preset);
+  rmSync(join(presetProjectDir, "src", "prompt-template.meta.json"), {
+    force: true
+  });
+  rmSync(join(presetProjectDir, "src", "regex.meta.json"), { force: true });
+  buildPresetSources(presetProjectDir);
+  assertEqual(
+    existsSync(join(presetProjectDir, "src", "prompt-template.meta.json")),
+    false,
+    "preset build: missing prompt meta is not recreated"
+  );
+  assertEqual(
+    existsSync(join(presetProjectDir, "src", "regex.meta.json")),
+    false,
+    "preset build: missing regex meta is not recreated"
+  );
+
+  const moduleProjectDir = join(WORK_ROOT, "module-build-no-meta-rewrite");
+  rmSync(moduleProjectDir, { recursive: true, force: true });
+  mkdirSync(join(moduleProjectDir, "pack"), { recursive: true });
+  writeFileSync(
+    join(moduleProjectDir, "pack", "module.json"),
+    JSON.stringify(
+      {
+        name: "No Meta Rewrite",
+        trigger: [],
+        lorebook: [{ key: "entry", comment: "entry", content: "hello" }],
+        regex: [{ comment: "sample", type: "editoutput", in: "a", out: "b" }]
+      },
+      null,
+      2
+    ) + "\n",
+    "utf-8"
+  );
+
+  const { buildModuleSources, extractModuleSources } = await import(
+    pathToFileURL(resolve(ROOT, "dist", "formats", "risum", "source-module.js"))
+      .href
+  );
+  extractModuleSources(moduleProjectDir);
+  rmSync(join(moduleProjectDir, "src", "lorebook.meta.json"), { force: true });
+  rmSync(join(moduleProjectDir, "src", "regex.meta.json"), { force: true });
+  rmSync(join(moduleProjectDir, "src", "trigger.meta.json"), { force: true });
+  buildModuleSources(moduleProjectDir);
+  assertEqual(
+    existsSync(join(moduleProjectDir, "src", "lorebook.meta.json")),
+    false,
+    "module build: missing lorebook meta is not recreated"
+  );
+  assertEqual(
+    existsSync(join(moduleProjectDir, "src", "regex.meta.json")),
+    false,
+    "module build: missing regex meta is not recreated"
+  );
+  assertEqual(
+    existsSync(join(moduleProjectDir, "src", "trigger.meta.json")),
+    false,
+    "module build: missing trigger meta is not recreated"
   );
 }

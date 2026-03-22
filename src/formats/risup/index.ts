@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
+import { readJson, writeJson } from "../../core/json-files.js";
+import { replaceExtension } from "../../core/path-utils.js";
 import { readProjectMeta, writeProjectMeta } from "../../core/project-meta.js";
 import type { ProjectMeta } from "../../types/project.js";
-import { readJson, writeJson } from "../bot/shared.js";
 import {
   decodeRisupContainer,
   encodeRisupContainer
@@ -43,7 +44,7 @@ export async function extractRisup(
 export async function buildRisup(
   projectDir: string,
   outputPath?: string
-): Promise<void> {
+): Promise<string> {
   const projectMeta = readProjectMeta(projectDir);
   if (
     projectMeta.sourceFormat !== "risup" &&
@@ -78,10 +79,7 @@ export async function buildRisup(
         projectMeta.sourceFormat === "risup" ? ".risup" : ".risupreset"
       )
     );
-  mkdirSync(join(finalOutput, ".."), { recursive: true });
+  mkdirSync(dirname(finalOutput), { recursive: true });
   writeFileSync(finalOutput, bytes);
-}
-
-function replaceExtension(fileName: string, nextExtension: string): string {
-  return fileName.replace(/\.[^.]+$/, "") + nextExtension;
+  return finalOutput;
 }
