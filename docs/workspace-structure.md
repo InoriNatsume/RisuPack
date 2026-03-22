@@ -16,8 +16,8 @@
 ## 작업장 예시
 
 ```text
-C:\Dev\RisuCMP\              ← 도구 저장소
-C:\Users\<user>\Workspaces\  ← 작업장 루트
+<tool-repo>/       ← 도구 저장소
+<workspace-root>/  ← 작업장 루트
   ├─ my-bot\
   ├─ my-module\
   └─ my-preset\

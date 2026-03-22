@@ -14,7 +14,11 @@ import {
   PRESET_RAW_PATH,
   RISUP_CONTAINER_META_PATH
 } from "./paths.js";
-import { buildPresetSources, extractPresetSources } from "./source-risup.js";
+import {
+  buildPresetSources,
+  extractPresetSources,
+  stripPresetSecrets
+} from "./source-risup.js";
 
 export async function extractRisup(
   inputPath: string,
@@ -22,7 +26,7 @@ export async function extractRisup(
   format: "risup" | "risupreset"
 ): Promise<void> {
   const decoded = await decodeRisupContainer(readFileSync(inputPath), format);
-  const preset = decoded.preset;
+  const preset = stripPresetSecrets(decoded.preset);
 
   const projectMeta: ProjectMeta = {
     kind: "preset",
@@ -56,8 +60,10 @@ export async function buildRisup(
   }
 
   buildPresetSources(projectDir);
-  const preset = readJson<Record<string, unknown>>(
-    join(projectDir, PRESET_DIST_JSON_PATH)
+  const preset = stripPresetSecrets(
+    readJson<Record<string, unknown>>(
+      join(projectDir, PRESET_DIST_JSON_PATH)
+    )
   );
   const containerMeta = readJson<{
     outerType?: string;

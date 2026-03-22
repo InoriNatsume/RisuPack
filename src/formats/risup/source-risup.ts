@@ -50,11 +50,13 @@ const PRESET_SOURCES = {
   customPromptTemplateToggle: "custom-prompt-template-toggle.txt",
   templateDefaultVariables: "template-default-variables.txt"
 } as const;
+const PRESET_SECRET_KEYS = ["openAIKey", "proxyKey"] as const;
 
 export function extractPresetSources(
   projectDir: string,
   preset: Record<string, unknown>
 ): void {
+  const sanitizedPreset = stripPresetSecrets(preset);
   const srcDir = join(projectDir, PRESET_SRC_DIR);
   const promptDir = join(srcDir, "prompt-template");
   const regexDir = join(srcDir, "regex");
@@ -62,27 +64,30 @@ export function extractPresetSources(
   mkdirSync(regexDir, { recursive: true });
   mkdirSync(join(projectDir, PRESET_PACK_DIR), { recursive: true });
 
-  writeText(join(srcDir, PRESET_SOURCES.name), asString(preset.name));
+  writeText(join(srcDir, PRESET_SOURCES.name), asString(sanitizedPreset.name));
   writeText(
     join(srcDir, PRESET_SOURCES.mainPrompt),
-    asString(preset.mainPrompt)
+    asString(sanitizedPreset.mainPrompt)
   );
-  writeText(join(srcDir, PRESET_SOURCES.jailbreak), asString(preset.jailbreak));
+  writeText(
+    join(srcDir, PRESET_SOURCES.jailbreak),
+    asString(sanitizedPreset.jailbreak)
+  );
   writeText(
     join(srcDir, PRESET_SOURCES.globalNote),
-    asString(preset.globalNote)
+    asString(sanitizedPreset.globalNote)
   );
   writeText(
     join(srcDir, PRESET_SOURCES.customPromptTemplateToggle),
-    asString(preset.customPromptTemplateToggle)
+    asString(sanitizedPreset.customPromptTemplateToggle)
   );
   writeText(
     join(srcDir, PRESET_SOURCES.templateDefaultVariables),
-    asString(preset.templateDefaultVariables)
+    asString(sanitizedPreset.templateDefaultVariables)
   );
 
-  const promptTemplate = Array.isArray(preset.promptTemplate)
-    ? (preset.promptTemplate as Record<string, unknown>[])
+  const promptTemplate = Array.isArray(sanitizedPreset.promptTemplate)
+    ? (sanitizedPreset.promptTemplate as Record<string, unknown>[])
     : [];
   const promptMeta: PromptTemplatePackMeta = {
     version: 1,
@@ -112,8 +117,8 @@ export function extractPresetSources(
     promptMeta
   );
 
-  const regexEntries = Array.isArray(preset.regex)
-    ? (preset.regex as Record<string, unknown>[])
+  const regexEntries = Array.isArray(sanitizedPreset.regex)
+    ? (sanitizedPreset.regex as Record<string, unknown>[])
     : [];
   const usedRegexFiles = new Set<string>();
   const regexMeta: PresetRegexPackMeta = {
@@ -139,7 +144,7 @@ export function extractPresetSources(
   );
 
   const presetMeta: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(preset)) {
+  for (const [key, value] of Object.entries(sanitizedPreset)) {
     if (
       [
         "name",
@@ -214,7 +219,7 @@ export function buildPresetSources(projectDir: string): void {
   preset.promptTemplate = buildPromptTemplateEntries(projectDir, promptMeta);
   preset.regex = buildRegexEntries(projectDir, regexMeta);
 
-  writeJson(join(projectDir, PRESET_DIST_JSON_PATH), preset);
+  writeJson(join(projectDir, PRESET_DIST_JSON_PATH), stripPresetSecrets(preset));
 }
 
 export function readPresetEditableSummary(
@@ -239,6 +244,12 @@ function promptItemSlug(item: Record<string, unknown>, index: number): string {
     asString(item.name)
   ].filter(Boolean);
   return safeWorkspaceName(parts.join("-"));
+}
+
+export function stripPresetSecrets(
+  preset: Record<string, unknown>
+): Record<string, unknown> {
+  return omitKeys(preset, Array.from(PRESET_SECRET_KEYS));
 }
 
 function asString(value: unknown): string {

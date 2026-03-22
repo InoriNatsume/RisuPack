@@ -22,22 +22,22 @@ node dist\cli\main.js --help
 
 ```powershell
 # extract
-risu-workspace-tools extract C:\input\bot.charx C:\work\bot
-risu-workspace-tools extract C:\input\module.risum C:\work\module
-risu-workspace-tools extract C:\input\preset.risup C:\work\preset
+risu-workspace-tools extract path\to\bot.charx path\to\workspaces\bot
+risu-workspace-tools extract path\to\module.risum path\to\workspaces\module
+risu-workspace-tools extract path\to\preset.risup path\to\workspaces\preset
 
 # build
-risu-workspace-tools build C:\work\bot
-risu-workspace-tools build C:\work\module
-risu-workspace-tools build C:\work\preset
+risu-workspace-tools build path\to\workspaces\bot
+risu-workspace-tools build path\to\workspaces\module
+risu-workspace-tools build path\to\workspaces\preset
 
 # workspace staged input flow
-risu-workspace-tools workspace stage-input C:\input\bot.charx C:\Users\<user>\RisuWorkspaces\bot
-risu-workspace-tools workspace extract C:\Users\<user>\RisuWorkspaces\bot
-risu-workspace-tools workspace build C:\Users\<user>\RisuWorkspaces\bot
+risu-workspace-tools workspace stage-input path\to\bot.charx path\to\workspaces\bot
+risu-workspace-tools workspace extract path\to\workspaces\bot
+risu-workspace-tools workspace build path\to\workspaces\bot
 
 # inspect
-risu-workspace-tools inspect C:\input\module.risum
+risu-workspace-tools inspect path\to\module.risum
 
 # interactive
 npm run interactive
@@ -99,3 +99,11 @@ npm run format
 - [프로젝트 구조](docs/project-structure.md)
 - [작업장 구조](docs/workspace-structure.md)
 - [포맷 메모](docs/format/)
+
+## 크레딧
+
+- 모듈툴: [arca.live 글](https://arca.live/b/characterai/163439328): 사실상 프로젝트의 동기이자 기준점, 모듈 처리 방식 상당수.
+- 로어툴: [arca.live 글](https://arca.live/b/characterai/163452507)
+- RisuToki (original): [komodoD/RisuToki](https://github.com/komodoD/RisuToki): 봇 편집 단위.
+- RisuToki (fork version) [woduseh/RisuToki](https://github.com/woduseh/RisuToki): 파일 포맷 재조합, 프리뷰/프롬프트 관련 구현 참조, SKILL 문서.
+- RisuAI: [kwaroran/RisuAI](https://github.com/kwaroran/RisuAI)

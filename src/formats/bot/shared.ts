@@ -26,7 +26,7 @@ export function toEditableData(card: CardLike): BotEditableData {
     firstMessage: asString(data.first_mes),
     additionalFirstMessages: asStringArray(data.alternate_greetings),
     globalNote: asString(data.post_history_instructions),
-    css: asString(risuExt.backgroundHTML),
+    css: stripStyleTags(asString(risuExt.backgroundHTML)),
     defaultVariables: asString(risuExt.defaultVariables)
   };
 }
@@ -55,7 +55,7 @@ export function applyEditableData<T extends CardLike>(
     extensions.risuai = {};
   }
   const risuai = extensions.risuai as Record<string, unknown>;
-  risuai.backgroundHTML = editable.css;
+  risuai.backgroundHTML = wrapStyleTags(editable.css);
   risuai.defaultVariables = editable.defaultVariables;
 
   return nextCard;
@@ -195,6 +195,31 @@ function asStringArray(value: unknown): string[] {
 
 function asOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value ? value : undefined;
+}
+
+function wrapStyleTags(content: string): string {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/<style[\s>]/i.test(trimmed)) {
+    return trimmed;
+  }
+  return `<style>\n${trimmed}\n</style>`;
+}
+
+function stripStyleTags(content: string): string {
+  let next = content.trim();
+  if (!next) {
+    return "";
+  }
+  if (next.startsWith("<style>")) {
+    next = next.slice("<style>".length);
+  }
+  if (next.endsWith("</style>")) {
+    next = next.slice(0, -"</style>".length);
+  }
+  return next.replace(/^\n+|\n+$/g, "");
 }
 
 export function resolveZipAssetPathsFromUri(uri: string): string[] {

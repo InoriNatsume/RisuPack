@@ -31,12 +31,12 @@ program
     "after",
     `
 예시:
-  risu-workspace-tools extract path\\to\\bot.charx C:\\Users\\<user>\\RisuWorkspaces\\bot
-  risu-workspace-tools extract path\\to\\preset.risup C:\\Users\\<user>\\RisuWorkspaces\\preset
-  risu-workspace-tools build C:\\Users\\<user>\\RisuWorkspaces\\bot
-  risu-workspace-tools workspace stage-input path\\to\\bot.charx C:\\Users\\<user>\\RisuWorkspaces\\bot
-  risu-workspace-tools workspace extract C:\\Users\\<user>\\RisuWorkspaces\\bot
-  risu-workspace-tools workspace build C:\\Users\\<user>\\RisuWorkspaces\\bot
+  risu-workspace-tools extract path\\to\\bot.charx path\\to\\workspaces\\bot
+  risu-workspace-tools extract path\\to\\preset.risup path\\to\\workspaces\\preset
+  risu-workspace-tools build path\\to\\workspaces\\bot
+  risu-workspace-tools workspace stage-input path\\to\\bot.charx path\\to\\workspaces\\bot
+  risu-workspace-tools workspace extract path\\to\\workspaces\\bot
+  risu-workspace-tools workspace build path\\to\\workspaces\\bot
   risu-workspace-tools inspect path\\to\\module.risum
   risu-workspace-tools interactive
 `

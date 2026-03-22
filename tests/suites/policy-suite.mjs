@@ -48,7 +48,9 @@ export async function runPolicySuite() {
   await assertTriggerModePolicies();
   await assertAssetSignatureWinsDeclaredExt();
   await assertLegacyRisuassetUriSupport();
+  assertCardCssWrapsStyleTagOnBuild();
   assertZipPreservedEntriesRoundtrip();
+  await assertRisupSecretKeysAreStripped();
   await assertSyntheticRisupresetRoundtrip();
   await assertSyntheticRisupresetDuplicateRegexRoundtrip();
   await assertSyntheticRisumCodecRoundtrip();
@@ -733,6 +735,37 @@ async function assertLegacyRisuassetUriSupport() {
   );
 }
 
+function assertCardCssWrapsStyleTagOnBuild() {
+  const caseRoot = join(WORK_ROOT, "card-css-wrap");
+  const inputPath = join(caseRoot, "sample.charx");
+  const projectDir = join(caseRoot, "project");
+  const outputPath = join(caseRoot, "rebuilt.charx");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+  writeFileSync(inputPath, createSyntheticBotArchive());
+
+  runCli(["extract", inputPath, projectDir]);
+  writeFileSync(
+    join(projectDir, "src", "card", "styles", "background.css"),
+    ".chattext {\n  color: red;\n}\n",
+    "utf-8"
+  );
+  runCli(["build", projectDir, outputPath]);
+
+  const rebuiltZip = new AdmZip(readFileSync(outputPath));
+  const cardEntry = rebuiltZip.getEntry("card.json");
+  if (!cardEntry) {
+    throw new Error("card css wrap: rebuilt card.json이 없습니다.");
+  }
+  const rebuiltCard = JSON.parse(cardEntry.getData().toString("utf-8"));
+  assertEqual(
+    rebuiltCard.data.extensions.risuai.backgroundHTML,
+    "<style>\n.chattext {\n  color: red;\n}\n</style>",
+    "card css wrap: style tag is restored"
+  );
+}
+
 function assertZipPreservedEntriesRoundtrip() {
   const caseRoot = join(WORK_ROOT, "zip-preserved-extra");
   const inputPath = join(caseRoot, "extra.charx");
@@ -767,6 +800,71 @@ function assertZipPreservedEntriesRoundtrip() {
     extraEntry?.getData().toString("utf-8"),
     "keep me",
     "zip preserved entry content"
+  );
+}
+
+async function assertRisupSecretKeysAreStripped() {
+  const caseRoot = join(WORK_ROOT, "risupreset-secret-strip");
+  const inputPath = join(caseRoot, "sample.risupreset");
+  const extracted = join(caseRoot, "extracted");
+  const rebuilt = join(caseRoot, "rebuilt.risupreset");
+  const roundtrip = join(caseRoot, "roundtrip");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  const { encodeRisupContainer } = await import(
+    pathToFileURL(
+      resolve(ROOT, "dist", "formats", "risup", "container-risup.js")
+    ).href
+  );
+  const preset = {
+    name: "Secret Strip",
+    mainPrompt: "main",
+    openAIKey: "secret-openai",
+    proxyKey: "secret-proxy",
+    promptTemplate: [],
+    regex: []
+  };
+  writeFileSync(inputPath, await encodeRisupContainer(preset, "risupreset"));
+
+  runCli(["extract", inputPath, extracted]);
+  const rawPreset = readJson(join(extracted, "pack", "preset.raw.json"));
+  assertEqual(
+    Object.prototype.hasOwnProperty.call(rawPreset, "openAIKey"),
+    false,
+    "risup secret strip: raw preset removes openAIKey"
+  );
+  assertEqual(
+    Object.prototype.hasOwnProperty.call(rawPreset, "proxyKey"),
+    false,
+    "risup secret strip: raw preset removes proxyKey"
+  );
+
+  runCli(["build", extracted, rebuilt]);
+  const builtPreset = readJson(join(extracted, "pack", "dist", "preset.json"));
+  assertEqual(
+    Object.prototype.hasOwnProperty.call(builtPreset, "openAIKey"),
+    false,
+    "risup secret strip: dist preset removes openAIKey"
+  );
+  assertEqual(
+    Object.prototype.hasOwnProperty.call(builtPreset, "proxyKey"),
+    false,
+    "risup secret strip: dist preset removes proxyKey"
+  );
+
+  runCli(["extract", rebuilt, roundtrip]);
+  const roundtripPreset = readJson(join(roundtrip, "pack", "preset.raw.json"));
+  assertEqual(
+    Object.prototype.hasOwnProperty.call(roundtripPreset, "openAIKey"),
+    false,
+    "risup secret strip: rebuilt preset removes openAIKey"
+  );
+  assertEqual(
+    Object.prototype.hasOwnProperty.call(roundtripPreset, "proxyKey"),
+    false,
+    "risup secret strip: rebuilt preset removes proxyKey"
   );
 }
 
