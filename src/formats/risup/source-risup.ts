@@ -7,7 +7,21 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
+import {
+  makeBuildFromRef,
+  makeSourceRef,
+  parseSourceRef
+} from "../../core/source-refs.js";
+import {
+  readPreferredMetaJson,
+  writeMirroredMetaJson
+} from "../../core/source-meta.js";
 import { resolveProjectPath } from "../../core/project-paths.js";
+import {
+  compareWorkspaceName,
+  safeWorkspaceName,
+  uniqueWorkspaceRelativePath
+} from "../../core/workspace-naming.js";
 import type {
   PresetRegexPackMeta,
   PromptTemplatePackMeta
@@ -18,9 +32,11 @@ import {
   PRESET_DIST_JSON_PATH,
   PRESET_META_PATH,
   PRESET_PACK_DIR,
+  PRESET_REGEX_SOURCE_META_PATH,
   PRESET_RAW_PATH,
   PRESET_REGEX_META_PATH,
   PRESET_SRC_DIR,
+  PROMPT_TEMPLATE_SOURCE_META_PATH,
   PROMPT_TEMPLATE_META_PATH
 } from "./paths.js";
 
@@ -43,8 +59,6 @@ export function extractPresetSources(
   mkdirSync(promptDir, { recursive: true });
   mkdirSync(regexDir, { recursive: true });
   mkdirSync(join(projectDir, PRESET_PACK_DIR), { recursive: true });
-
-  writeJson(join(projectDir, PRESET_RAW_PATH), preset);
 
   writeText(join(srcDir, PRESET_SOURCES.name), asString(preset.name));
   writeText(
@@ -89,7 +103,12 @@ export function extractPresetSources(
       return metaItem;
     })
   };
-  writeJson(join(projectDir, PROMPT_TEMPLATE_META_PATH), promptMeta);
+  writeMirroredMetaJson(
+    projectDir,
+    PROMPT_TEMPLATE_SOURCE_META_PATH,
+    PROMPT_TEMPLATE_META_PATH,
+    promptMeta
+  );
 
   const regexEntries = Array.isArray(preset.regex)
     ? (preset.regex as Record<string, unknown>[])
@@ -103,14 +122,19 @@ export function extractPresetSources(
           ? entry.comment
           : `regex_${index + 1}`;
       const sourceFile = uniqueSourceFile(
-        `${PRESET_SRC_DIR}/regex/${safeFilename(label)}.json`,
+        `${PRESET_SRC_DIR}/regex/${safeWorkspaceName(label)}.json`,
         usedRegexFiles
       );
       writeJson(join(projectDir, sourceFile), entry);
       return { sourceFile };
     })
   };
-  writeJson(join(projectDir, PRESET_REGEX_META_PATH), regexMeta);
+  writeMirroredMetaJson(
+    projectDir,
+    PRESET_REGEX_SOURCE_META_PATH,
+    PRESET_REGEX_META_PATH,
+    regexMeta
+  );
 
   const presetMeta: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(preset)) {
@@ -131,14 +155,20 @@ export function extractPresetSources(
     presetMeta[key] = value;
   }
 
-  presetMeta.name = `__SOURCE__:src/${PRESET_SOURCES.name}`;
-  presetMeta.mainPrompt = `__SOURCE__:src/${PRESET_SOURCES.mainPrompt}`;
-  presetMeta.jailbreak = `__SOURCE__:src/${PRESET_SOURCES.jailbreak}`;
-  presetMeta.globalNote = `__SOURCE__:src/${PRESET_SOURCES.globalNote}`;
-  presetMeta.customPromptTemplateToggle = `__SOURCE__:src/${PRESET_SOURCES.customPromptTemplateToggle}`;
-  presetMeta.templateDefaultVariables = `__SOURCE__:src/${PRESET_SOURCES.templateDefaultVariables}`;
-  presetMeta.promptTemplate = `__BUILD_FROM__:${PROMPT_TEMPLATE_META_PATH}`;
-  presetMeta.regex = `__BUILD_FROM__:${PRESET_REGEX_META_PATH}`;
+  presetMeta.name = makeSourceRef(`src/${PRESET_SOURCES.name}`);
+  presetMeta.mainPrompt = makeSourceRef(`src/${PRESET_SOURCES.mainPrompt}`);
+  presetMeta.jailbreak = makeSourceRef(`src/${PRESET_SOURCES.jailbreak}`);
+  presetMeta.globalNote = makeSourceRef(`src/${PRESET_SOURCES.globalNote}`);
+  presetMeta.customPromptTemplateToggle = makeSourceRef(
+    `src/${PRESET_SOURCES.customPromptTemplateToggle}`
+  );
+  presetMeta.templateDefaultVariables = makeSourceRef(
+    `src/${PRESET_SOURCES.templateDefaultVariables}`
+  );
+  presetMeta.promptTemplate = makeBuildFromRef(
+    PROMPT_TEMPLATE_SOURCE_META_PATH
+  );
+  presetMeta.regex = makeBuildFromRef(PRESET_REGEX_SOURCE_META_PATH);
   writeJson(join(projectDir, PRESET_META_PATH), presetMeta);
 }
 
@@ -156,40 +186,43 @@ export function buildPresetSources(projectDir: string): void {
     "customPromptTemplateToggle",
     "templateDefaultVariables"
   ]) {
-    const value = preset[key];
-    if (typeof value === "string" && value.startsWith("__SOURCE__:")) {
-      preset[key] = readText(
-        resolveProjectPath(projectDir, value.slice("__SOURCE__:".length)),
-        key
-      );
+    const sourcePath = parseSourceRef(preset[key]);
+    if (sourcePath) {
+      preset[key] = readText(resolveProjectPath(projectDir, sourcePath), key);
     }
   }
 
-  preset.promptTemplate = listRelativeFiles(
+  const promptMeta = readPreferredMetaJson<PromptTemplatePackMeta>(
     projectDir,
-    `${PRESET_SRC_DIR}/prompt-template`,
-    ".json"
-  ).map((jsonFile) => {
-    const entry = readJson<Record<string, unknown>>(
-      resolveProjectPath(projectDir, jsonFile)
-    );
-    const textFile = jsonFile.replace(/\.json$/i, ".md");
-    const textPath = resolveProjectPath(projectDir, textFile);
-    if (existsSync(textPath)) {
-      entry.text = readText(textPath);
-    }
-    return entry;
-  });
-
-  preset.regex = listRelativeFiles(
+    PROMPT_TEMPLATE_SOURCE_META_PATH,
+    PROMPT_TEMPLATE_META_PATH
+  ) ?? {
+    version: 1 as const,
+    items: []
+  };
+  writeMirroredMetaJson(
     projectDir,
-    `${PRESET_SRC_DIR}/regex`,
-    ".json"
-  ).map((sourceFile) =>
-    readJson<Record<string, unknown>>(
-      resolveProjectPath(projectDir, sourceFile)
-    )
+    PROMPT_TEMPLATE_SOURCE_META_PATH,
+    PROMPT_TEMPLATE_META_PATH,
+    promptMeta
   );
+  const regexMeta = readPreferredMetaJson<PresetRegexPackMeta>(
+    projectDir,
+    PRESET_REGEX_SOURCE_META_PATH,
+    PRESET_REGEX_META_PATH
+  ) ?? {
+    version: 1 as const,
+    items: []
+  };
+  writeMirroredMetaJson(
+    projectDir,
+    PRESET_REGEX_SOURCE_META_PATH,
+    PRESET_REGEX_META_PATH,
+    regexMeta
+  );
+
+  preset.promptTemplate = buildPromptTemplateEntries(projectDir, promptMeta);
+  preset.regex = buildRegexEntries(projectDir, regexMeta);
 
   writeJson(join(projectDir, PRESET_DIST_JSON_PATH), preset);
 }
@@ -215,24 +248,7 @@ function promptItemSlug(item: Record<string, unknown>, index: number): string {
     asString(item.role),
     asString(item.name)
   ].filter(Boolean);
-  return safeFilename(parts.join("-"));
-}
-
-function safeFilename(value: string): string {
-  const sanitized = value
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
-    .trim()
-    .replace(/[. ]+$/g, "");
-
-  if (!sanitized || sanitized === "." || sanitized === "..") {
-    return "_";
-  }
-
-  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(sanitized)) {
-    return `_${sanitized}`;
-  }
-
-  return sanitized;
+  return safeWorkspaceName(parts.join("-"));
 }
 
 function omitKeys(
@@ -272,31 +288,7 @@ function uniqueSourceFile(
   sourceFile: string,
   usedSourceFiles: Set<string>
 ): string {
-  const normalized = sourceFile.replace(/\\/g, "/");
-  if (!usedSourceFiles.has(normalized)) {
-    usedSourceFiles.add(normalized);
-    return normalized;
-  }
-
-  const lastSlash = normalized.lastIndexOf("/");
-  const directory = lastSlash >= 0 ? normalized.slice(0, lastSlash) : "";
-  const filename =
-    lastSlash >= 0 ? normalized.slice(lastSlash + 1) : normalized;
-  const dotIndex = filename.lastIndexOf(".");
-  const baseName = dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
-  const extension = dotIndex >= 0 ? filename.slice(dotIndex) : "";
-
-  let suffix = 2;
-  while (true) {
-    const candidate = directory
-      ? `${directory}/${baseName}_${suffix}${extension}`
-      : `${baseName}_${suffix}${extension}`;
-    if (!usedSourceFiles.has(candidate)) {
-      usedSourceFiles.add(candidate);
-      return candidate;
-    }
-    suffix += 1;
-  }
+  return uniqueWorkspaceRelativePath(sourceFile, usedSourceFiles);
 }
 
 function listRelativeFiles(
@@ -340,25 +332,89 @@ function walkRelativeFiles(
   return files;
 }
 
-function compareWorkspaceName(left: string, right: string): number {
-  const leftKey = buildSortKey(left);
-  const rightKey = buildSortKey(right);
-  const baseDiff = leftKey.base.localeCompare(rightKey.base, "en", {
-    sensitivity: "base"
+function buildPromptTemplateEntries(
+  projectDir: string,
+  promptMeta: PromptTemplatePackMeta
+): Record<string, unknown>[] {
+  const scannedJsonFiles = listRelativeFiles(
+    projectDir,
+    `${PRESET_SRC_DIR}/prompt-template`,
+    ".json"
+  );
+  const remainingJsonFiles = new Set(scannedJsonFiles);
+  const orderedJsonFiles: string[] = [];
+  const textFileByJsonFile = new Map<string, string>();
+
+  for (const item of promptMeta.items) {
+    const jsonFile = normalizeRelativePath(item.jsonFile);
+    if (!jsonFile || !remainingJsonFiles.has(jsonFile)) {
+      continue;
+    }
+    orderedJsonFiles.push(jsonFile);
+    remainingJsonFiles.delete(jsonFile);
+    if (item.textFile) {
+      textFileByJsonFile.set(jsonFile, normalizeRelativePath(item.textFile)!);
+    }
+  }
+
+  for (const jsonFile of scannedJsonFiles) {
+    if (!remainingJsonFiles.has(jsonFile)) {
+      continue;
+    }
+    orderedJsonFiles.push(jsonFile);
+    remainingJsonFiles.delete(jsonFile);
+  }
+
+  return orderedJsonFiles.map((jsonFile) => {
+    const entry = readJson<Record<string, unknown>>(
+      resolveProjectPath(projectDir, jsonFile)
+    );
+    const textFile =
+      textFileByJsonFile.get(jsonFile) ?? jsonFile.replace(/\.json$/i, ".md");
+    const textPath = resolveProjectPath(projectDir, textFile);
+    if (existsSync(textPath)) {
+      entry.text = readText(textPath);
+    }
+    return entry;
   });
-  if (baseDiff !== 0) {
-    return baseDiff;
-  }
-  if (leftKey.suffix !== rightKey.suffix) {
-    return leftKey.suffix - rightKey.suffix;
-  }
-  return left.localeCompare(right, "en", { sensitivity: "base" });
 }
 
-function buildSortKey(value: string): { base: string; suffix: number } {
-  const match = /^(.*?)(?:_(\d+))?(?:\.[^.]+)?$/i.exec(value);
-  return {
-    base: (match?.[1] ?? value).toLowerCase(),
-    suffix: Number(match?.[2] ?? "1")
-  };
+function buildRegexEntries(
+  projectDir: string,
+  regexMeta: PresetRegexPackMeta
+): Record<string, unknown>[] {
+  const scannedFiles = listRelativeFiles(
+    projectDir,
+    `${PRESET_SRC_DIR}/regex`,
+    ".json"
+  );
+  const remainingFiles = new Set(scannedFiles);
+  const orderedFiles: string[] = [];
+
+  for (const item of regexMeta.items) {
+    const sourceFile = normalizeRelativePath(item.sourceFile);
+    if (!sourceFile || !remainingFiles.has(sourceFile)) {
+      continue;
+    }
+    orderedFiles.push(sourceFile);
+    remainingFiles.delete(sourceFile);
+  }
+
+  for (const sourceFile of scannedFiles) {
+    if (!remainingFiles.has(sourceFile)) {
+      continue;
+    }
+    orderedFiles.push(sourceFile);
+    remainingFiles.delete(sourceFile);
+  }
+
+  return orderedFiles.map((sourceFile) =>
+    readJson<Record<string, unknown>>(
+      resolveProjectPath(projectDir, sourceFile)
+    )
+  );
+}
+
+function normalizeRelativePath(value: string | undefined): string | undefined {
+  return value ? value.replace(/\\/g, "/") : undefined;
 }
