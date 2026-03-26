@@ -1,15 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { decode, encode } from "msgpackr";
+import { decodeRPack, encodeRPack } from "../rpack.js";
 
-const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-const RPACK_PATH = resolve(
-  MODULE_DIR,
-  "../../../vendor/risu-codec/lib/rpack.mjs"
-);
 const RISUPRESET_KEY = "risupreset";
 const GZIP_SIGNATURE = Buffer.from([0x1f, 0x8b, 0x08]);
 
@@ -74,12 +68,10 @@ export async function encodeRisupContainer(
 }
 
 async function encodeRPackBytes(data: Uint8Array): Promise<Uint8Array> {
-  const { encodeRPack } = await import(pathToFileURL(RPACK_PATH).href);
   return encodeRPack(data);
 }
 
 async function decodeRPackBytes(data: Uint8Array): Promise<Uint8Array> {
-  const { decodeRPack } = await import(pathToFileURL(RPACK_PATH).href);
   return decodeRPack(data);
 }
 

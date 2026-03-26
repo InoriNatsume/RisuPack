@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
 import {
   assertBufferEqual,
@@ -201,11 +201,8 @@ function assertCardRoundtrip(testCase, extracted, roundtrip) {
 }
 
 function assertModuleProjectRoundtrip(label, extracted, roundtrip) {
-  const builtModule = readJson(join(extracted, "pack", "dist", "module.json"));
-  const nextModule = readJson(join(roundtrip, "pack", "module.json"));
   const baseMeta = readJson(join(extracted, "pack", "module.assets.json"));
   const nextMeta = readJson(join(roundtrip, "pack", "module.assets.json"));
-  const lorebookMeta = readJson(join(extracted, "pack", "lorebook.meta.json"));
 
   assertExists(
     join(extracted, "pack", "module.meta.json"),
@@ -235,30 +232,41 @@ function assertModuleProjectRoundtrip(label, extracted, roundtrip) {
     join(extracted, "pack", "trigger.meta.json"),
     `${label}: pack/trigger.meta.json`
   );
-  assertEqualJson(builtModule, nextModule, `${label}: built module.json`);
-  assertEqual(
-    baseMeta.assets.length,
-    nextMeta.assets.length,
-    `${label}: module asset count`
+  assertFileTextRoundtrip(
+    join(extracted, "src", "lorebook.meta.json"),
+    join(roundtrip, "src", "lorebook.meta.json"),
+    `${label}: src/lorebook.meta.json`
   );
-  if (baseMeta.assets.length > 0) {
-    assertEqual(
-      baseMeta.assets[0].detectedExt,
-      nextMeta.assets[0].detectedExt,
-      `${label}: first module asset detected ext`
-    );
-  }
-  if (
-    Array.isArray(lorebookMeta.items) &&
-    lorebookMeta.items.some((item) => item.kind === "folder")
-  ) {
-    const lorebookEntries = readDirSafe(join(extracted, "src", "lorebook"));
-    assertEqual(
-      lorebookEntries.length > 1,
-      true,
-      `${label}: lorebook folder source extraction`
-    );
-  }
+  assertFileTextRoundtrip(
+    join(extracted, "src", "regex.meta.json"),
+    join(roundtrip, "src", "regex.meta.json"),
+    `${label}: src/regex.meta.json`
+  );
+  assertFileTextRoundtrip(
+    join(extracted, "src", "trigger.meta.json"),
+    join(roundtrip, "src", "trigger.meta.json"),
+    `${label}: src/trigger.meta.json`
+  );
+  assertDirectoryTextRoundtripRecursive(
+    join(extracted, "src", "lorebook"),
+    join(roundtrip, "src", "lorebook"),
+    `${label}: src/lorebook`
+  );
+  assertDirectoryTextRoundtripRecursive(
+    join(extracted, "src", "regex"),
+    join(roundtrip, "src", "regex"),
+    `${label}: src/regex`
+  );
+  assertOptionalFileTextRoundtrip(
+    join(extracted, "src", "styles", "embedding.css"),
+    join(roundtrip, "src", "styles", "embedding.css"),
+    `${label}: src/styles/embedding.css`
+  );
+  assertEqualJson(
+    normalizeModuleAssetRecords(baseMeta.assets),
+    normalizeModuleAssetRecords(nextMeta.assets),
+    `${label}: module assets metadata`
+  );
 }
 
 function assertDirectoryTextRoundtrip(leftDir, rightDir, label) {
@@ -287,4 +295,67 @@ function assertDirectoryJsonRoundtrip(leftDir, rightDir, label) {
     const right = readFileSync(rightPath, "utf-8");
     assertEqual(left, right, `${label}/${entryName}`);
   }
+}
+
+function assertFileTextRoundtrip(leftPath, rightPath, label) {
+  const left = readFileSync(leftPath, "utf-8");
+  const right = readFileSync(rightPath, "utf-8");
+  assertEqual(left, right, label);
+}
+
+function assertOptionalFileTextRoundtrip(leftPath, rightPath, label) {
+  const leftExists = existsSync(leftPath);
+  const rightExists = existsSync(rightPath);
+  assertEqual(leftExists, rightExists, `${label}: exists`);
+  if (!leftExists) {
+    return;
+  }
+
+  assertFileTextRoundtrip(leftPath, rightPath, label);
+}
+
+function assertDirectoryTextRoundtripRecursive(leftDir, rightDir, label) {
+  const leftEntries = listFilesRecursive(leftDir).sort();
+  const rightEntries = listFilesRecursive(rightDir).sort();
+  assertEqualJson(leftEntries, rightEntries, `${label}: file list`);
+
+  for (const entryName of leftEntries) {
+    assertFileTextRoundtrip(
+      join(leftDir, entryName),
+      join(rightDir, entryName),
+      `${label}/${entryName}`
+    );
+  }
+}
+
+function listFilesRecursive(rootDir, baseDir = rootDir) {
+  if (!existsSync(rootDir)) {
+    return [];
+  }
+
+  const results = [];
+  for (const entryName of readdirSync(rootDir)) {
+    const absolutePath = join(rootDir, entryName);
+    const stats = statSync(absolutePath);
+    if (stats.isDirectory()) {
+      results.push(...listFilesRecursive(absolutePath, baseDir));
+      continue;
+    }
+
+    results.push(relative(baseDir, absolutePath).replace(/\\/g, "/"));
+  }
+
+  return results;
+}
+
+function normalizeModuleAssetRecords(records) {
+  return [...records]
+    .map((record) => ({
+      path: record.path,
+      originalName: record.originalName,
+      declaredExt: record.declaredExt ?? null,
+      detectedExt: record.detectedExt ?? null,
+      mediaKind: record.mediaKind ?? null
+    }))
+    .sort((left, right) => left.path.localeCompare(right.path));
 }

@@ -1,4 +1,4 @@
-import { decodeRPack, encodeRPack } from "./rpack.mjs";
+import { decodeRPack, encodeRPack } from "../rpack.js";
 
 const MODULE_MAGIC = 0x6f;
 const MODULE_VERSION = 0x00;
@@ -6,19 +6,20 @@ const ASSET_MARKER = 0x01;
 const END_MARKER = 0x00;
 const MODULE_TYPE = "risuModule";
 
-export async function packModule(module, assetBuffers = []) {
+export async function packModule(
+  module: unknown,
+  assetBuffers: Buffer[] = []
+): Promise<Buffer> {
   const exportedModule = cloneModuleForContainer(module);
   const mainPayload = Buffer.from(
     JSON.stringify({ type: MODULE_TYPE, module: exportedModule }, null, 2),
     "utf-8"
   );
-  const encodedMain = Buffer.from(await encodeRPack(mainPayload));
+  const encodedMain = encodeRPack(mainPayload);
   const chunks = [createHeader(encodedMain.length), encodedMain];
 
   for (const assetBuffer of assetBuffers) {
-    const encodedAsset = Buffer.from(
-      await encodeRPack(Buffer.from(assetBuffer))
-    );
+    const encodedAsset = encodeRPack(assetBuffer);
     chunks.push(createAssetChunk(encodedAsset));
   }
 
@@ -26,7 +27,9 @@ export async function packModule(module, assetBuffers = []) {
   return Buffer.concat(chunks);
 }
 
-export async function unpackModule(input) {
+export async function unpackModule(
+  input: Buffer
+): Promise<{ module: unknown; assets: Buffer[] }> {
   const cursor = createCursor(input);
   const magic = readByte(cursor, "magic");
   if (magic !== MODULE_MAGIC) {
@@ -41,17 +44,18 @@ export async function unpackModule(input) {
   }
 
   const encodedMain = readChunkPayload(cursor, "main");
-  const decodedMain = Buffer.from(await decodeRPack(encodedMain)).toString(
-    "utf-8"
-  );
-  const parsedMain = JSON.parse(decodedMain);
-  if (!parsedMain || parsedMain.type !== MODULE_TYPE) {
+  const decodedMain = decodeRPack(encodedMain).toString("utf-8");
+  const parsedMain = JSON.parse(decodedMain) as {
+    type?: unknown;
+    module?: unknown;
+  };
+  if (parsedMain.type !== MODULE_TYPE) {
     throw new Error(
-      `Invalid module type: "${String(parsedMain?.type)}" (expected "risuModule")`
+      `Invalid module type: "${String(parsedMain.type)}" (expected "risuModule")`
     );
   }
 
-  const assets = [];
+  const assets: Buffer[] = [];
   while (!atEnd(cursor)) {
     const marker = readByte(cursor, "chunk marker");
     if (marker === END_MARKER) {
@@ -64,7 +68,7 @@ export async function unpackModule(input) {
     }
 
     const encodedAsset = readChunkPayload(cursor, "asset");
-    assets.push(Buffer.from(await decodeRPack(encodedAsset)));
+    assets.push(decodeRPack(encodedAsset));
   }
 
   return {
@@ -73,22 +77,28 @@ export async function unpackModule(input) {
   };
 }
 
-function cloneModuleForContainer(module) {
+function cloneModuleForContainer(module: unknown): unknown {
   const cloned = structuredClone(module);
-  if (!cloned || !Array.isArray(cloned.assets)) {
+  if (!cloned || typeof cloned !== "object") {
     return cloned;
   }
 
-  cloned.assets = cloned.assets.map((asset) => {
+  const nextModule = cloned as { assets?: unknown[] };
+  if (!Array.isArray(nextModule.assets)) {
+    return cloned;
+  }
+
+  nextModule.assets = nextModule.assets.map((asset) => {
     if (!Array.isArray(asset)) {
       return asset;
     }
+
     return [asset[0], "", asset[2]];
   });
-  return cloned;
+  return nextModule;
 }
 
-function createHeader(mainLength) {
+function createHeader(mainLength: number): Buffer {
   const header = Buffer.alloc(6);
   header.writeUInt8(MODULE_MAGIC, 0);
   header.writeUInt8(MODULE_VERSION, 1);
@@ -96,7 +106,7 @@ function createHeader(mainLength) {
   return header;
 }
 
-function createAssetChunk(encodedAsset) {
+function createAssetChunk(encodedAsset: Buffer): Buffer {
   const chunk = Buffer.alloc(5 + encodedAsset.length);
   chunk.writeUInt8(ASSET_MARKER, 0);
   chunk.writeUInt32LE(encodedAsset.length, 1);
@@ -104,25 +114,31 @@ function createAssetChunk(encodedAsset) {
   return chunk;
 }
 
-function createCursor(input) {
+function createCursor(input: Buffer): { buffer: Buffer; offset: number } {
   return {
     buffer: Buffer.from(input),
     offset: 0
   };
 }
 
-function atEnd(cursor) {
+function atEnd(cursor: { buffer: Buffer; offset: number }): boolean {
   return cursor.offset >= cursor.buffer.length;
 }
 
-function readByte(cursor, label) {
+function readByte(
+  cursor: { buffer: Buffer; offset: number },
+  label: string
+): number {
   ensureAvailable(cursor, 1, label);
   const value = cursor.buffer.readUInt8(cursor.offset);
   cursor.offset += 1;
   return value;
 }
 
-function readChunkPayload(cursor, label) {
+function readChunkPayload(
+  cursor: { buffer: Buffer; offset: number },
+  label: string
+): Buffer {
   ensureAvailable(cursor, 4, `${label} length`);
   const length = cursor.buffer.readUInt32LE(cursor.offset);
   cursor.offset += 4;
@@ -132,7 +148,11 @@ function readChunkPayload(cursor, label) {
   return payload;
 }
 
-function ensureAvailable(cursor, size, label) {
+function ensureAvailable(
+  cursor: { buffer: Buffer; offset: number },
+  size: number,
+  label: string
+): void {
   const remaining = cursor.buffer.length - cursor.offset;
   if (remaining < size) {
     throw new Error(

@@ -38,6 +38,7 @@ src/
 │  └─ workspace-naming.ts
 ├─ formats/
 │  ├─ bot/
+│  ├─ rpack.ts
 │  ├─ risum/
 │  └─ risup/
 └─ types/
@@ -48,6 +49,7 @@ src/
 - `app/`: 공통 명령 결과 구조와 출력 포맷
 - `cli/`: 직접 명령, staged input 흐름, 콘솔 출력
 - `core/`: 포맷 감지, 입력 검증, JSON/경로/객체 유틸, 경로 안전성, 작업장 scaffold/입력 관리, 공용 메타/에셋 규칙
+- `formats/rpack.ts`: `.risum`, `.risup`에 공통으로 쓰는 저장소 내부 RPack 변환
 - `formats/bot`: 봇 컨테이너와 editable source 처리
 - `formats/risum`: 모듈 컨테이너와 lorebook/regex/trigger source 처리
 - `formats/risup`: 프리셋 컨테이너와 prompt-template/regex source 처리

@@ -1,11 +1,5 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { packModule, unpackModule } from "./codec.js";
 
-const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-const CODEC_PATH = resolve(
-  MODULE_DIR,
-  "../../../vendor/risu-codec/lib/risum-container.mjs"
-);
 const RISUM_MAGIC = 0x6f;
 const RISUM_VERSION = 0x00;
 
@@ -13,7 +7,10 @@ export async function loadRisumCodec(): Promise<{
   packModule: (module: unknown, assetBuffers?: Buffer[]) => Promise<Buffer>;
   unpackModule: (buf: Buffer) => Promise<{ module: any; assets: Buffer[] }>;
 }> {
-  return import(pathToFileURL(CODEC_PATH).href);
+  return {
+    packModule,
+    unpackModule
+  };
 }
 
 export function assertRisumSignature(inputBytes: Buffer): void {

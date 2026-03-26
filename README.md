@@ -76,7 +76,6 @@ RisuCMP/
 ├─ docs/
 ├─ templates/
 ├─ tests/
-├─ vendor/
 ├─ workspace/
 └─ test-artifacts/
 ```
@@ -86,12 +85,9 @@ RisuCMP/
 ```powershell
 npm run check
 npm test
-npm run test:manifest   # sample manifest가 있을 때만
+npm run test:manifest
 npm run format
 ```
-
-`npm test`는 synthetic roundtrip, 경로 탈출 방지, source 누락 거부, 작업장 staged input 흐름을 검증합니다.
-실샘플 roundtrip 검증은 `workspace/samples/roundtrip-manifest.json`이 있을 때 `npm run test:manifest`로 별도 실행합니다.
 
 ## 문서
 
@@ -105,5 +101,25 @@ npm run format
 - 모듈툴: [arca.live 글](https://arca.live/b/characterai/163439328): 사실상 프로젝트의 동기이자 기준점, 모듈 처리 방식 상당수.
 - 로어툴: [arca.live 글](https://arca.live/b/characterai/163452507)
 - RisuToki (original): [komodoD/RisuToki](https://github.com/komodoD/RisuToki): 봇 편집 단위.
-- RisuToki (fork version) [woduseh/RisuToki](https://github.com/woduseh/RisuToki): 파일 포맷 재조합, 프리뷰/프롬프트 관련 구현 참조, SKILL 문서.
+- RisuToki (fork version) [woduseh/RisuToki](https://github.com/woduseh/RisuToki): 파일 포맷 재조합, 프리뷰/프롬프트 관련 구현 참조, SKILL 문서. template에 쓸 SKILL은 해당 리포 또는 위 모듈의 것을 사용하길 추천.
 - RisuAI: [kwaroran/RisuAI](https://github.com/kwaroran/RisuAI)
+
+## 크레딧2(테스트)
+
+- 테스트 확인 날짜: `2026-03-27`
+- `tests/samples-local/🌌 얼터네이트 헌터즈 V2 추가 에셋 모듈.risum`
+  - 작성자: `MiliM`
+  - 출처: [arca.live/b/characterai/154237746](https://arca.live/b/characterai/154237746), [arca.live/b/characterai/164581980](https://arca.live/b/characterai/164581980)
+  - 라이선스: `CC BY-NC 4.0`
+- `tests/samples-local/Alternate Hunters V2.charx`
+  - 작성자: `MiliM`
+  - 출처: [arca.live/b/characterai/154237746](https://arca.live/b/characterai/154237746), [arca.live/b/characterai/164581980](https://arca.live/b/characterai/164581980)
+  - 라이선스 대용: [https://arca.live/b/characterai/160596092](https://arca.live/b/characterai/160596092)
+- `tests/samples-local/😈소악마 프롬프트 v15A [Gem3.1]_preset.risup`
+  - 작성자: `레니허벅지에점있어요`
+  - 출처: [arca.live/b/characterai/165492320](https://arca.live/b/characterai/165492320)
+  - 라이선스: `CC BY-NC-SA 4.0`
+- `tests/samples-local/캠퍼스툰 3.0.jpeg`
+  - 작성자: `이삭2`
+  - 출처: [arca.live/b/characterai/155896353](https://arca.live/b/characterai/155896353)
+  - 라이선스: `CC BY-NC-SA 4.0`

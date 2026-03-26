@@ -51,8 +51,10 @@ export async function runPolicySuite() {
   assertCardCssWrapsStyleTagOnBuild();
   assertZipPreservedEntriesRoundtrip();
   await assertRisupSecretKeysAreStripped();
+  await assertSyntheticRisupRoundtrip();
   await assertSyntheticRisupresetRoundtrip();
   await assertSyntheticRisupresetDuplicateRegexRoundtrip();
+  await assertRpackKnownVector();
   await assertSyntheticRisumCodecRoundtrip();
 }
 
@@ -868,6 +870,59 @@ async function assertRisupSecretKeysAreStripped() {
   );
 }
 
+async function assertSyntheticRisupRoundtrip() {
+  const caseRoot = join(WORK_ROOT, "risup-synthetic");
+  const inputPath = join(caseRoot, "sample.risup");
+  const extracted = join(caseRoot, "extracted");
+  const rebuilt = join(caseRoot, "rebuilt.risup");
+  const roundtrip = join(caseRoot, "roundtrip");
+
+  rmSync(caseRoot, { recursive: true, force: true });
+  mkdirSync(caseRoot, { recursive: true });
+
+  const { encodeRisupContainer } = await import(
+    pathToFileURL(
+      resolve(ROOT, "dist", "formats", "risup", "container-risup.js")
+    ).href
+  );
+  const preset = {
+    name: "Synthetic Risup",
+    mainPrompt: "main",
+    jailbreak: "jb",
+    globalNote: "gn",
+    promptTemplate: [
+      {
+        type: "plain",
+        type2: "main",
+        role: "system",
+        text: "hello"
+      }
+    ],
+    regex: [
+      {
+        comment: "sample",
+        type: "editoutput",
+        in: "a",
+        out: "b",
+        flag: "g"
+      }
+    ]
+  };
+  writeFileSync(inputPath, await encodeRisupContainer(preset, "risup"));
+
+  runCli(["extract", inputPath, extracted]);
+  runCli(["build", extracted, rebuilt]);
+  runCli(["extract", rebuilt, roundtrip]);
+
+  const builtPreset = readJson(join(extracted, "pack", "dist", "preset.json"));
+  const nextPreset = readJson(join(roundtrip, "pack", "preset.raw.json"));
+  assertEqualJson(
+    builtPreset,
+    nextPreset,
+    "synthetic risup built preset roundtrip"
+  );
+}
+
 async function assertSyntheticRisupresetRoundtrip() {
   const caseRoot = join(WORK_ROOT, "risupreset-synthetic");
   const inputPath = join(caseRoot, "sample.risupreset");
@@ -969,6 +1024,25 @@ async function assertSyntheticRisupresetDuplicateRegexRoundtrip() {
     regexMeta.items[0].sourceFile !== regexMeta.items[1].sourceFile,
     true,
     "duplicate regex comments: unique source files"
+  );
+}
+
+async function assertRpackKnownVector() {
+  const { decodeRPack, encodeRPack } = await import(
+    pathToFileURL(resolve(ROOT, "dist", "formats", "rpack.js")).href
+  );
+  const source = Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+  const encoded = encodeRPack(source);
+
+  assertEqual(
+    encoded.toString("hex"),
+    "c40d1e0bbd2b3f55",
+    "rpack known vector encode"
+  );
+  assertEqual(
+    decodeRPack(encoded).equals(source),
+    true,
+    "rpack known vector decode"
   );
 }
 

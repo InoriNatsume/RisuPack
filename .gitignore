@@ -4,6 +4,7 @@ dist/
 # Local workspace inputs/outputs
 workspace/
 test-artifacts/
+tests/samples-local/
 
 # Local reference repositories
 references/
