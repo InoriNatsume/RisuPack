@@ -1,6 +1,6 @@
 # 파싱 함정 및 해결책
 
-검증 기준 RisuAI 버전: `Risuai-2026.2.291`
+검증 기준 RisuAI 버전: `RisuAI 2026.3.334`
 
 포맷 자체를 구현할 때 계속 부딪히는 함정만 모았습니다.
 
@@ -86,15 +86,24 @@ character.charx
 
 ---
 
-## 7. 폴더 ID는 UUID 그대로가 아니다
+## 7. 폴더 엔트리 key와 자식 엔트리 folder는 같은 값을 쓴다
 
-로어북 엔트리의 `folder`는 다음 형태를 가집니다.
+폴더 엔트리의 `key`는 다음 형태로 만들어집니다.
 
 ```text
 \uf000folder:<folder-id>
 ```
 
-따라서 폴더 참조를 쓸 때는 `folder:` 뒤의 실제 ID를 다시 추출해야 합니다.
+폴더 안에 들어가는 일반 엔트리의 `folder`도 같은 값을 씁니다.
+
+```text
+entry.folder === folderEntry.key
+```
+
+즉 다음처럼 이해하면 됩니다.
+
+- 폴더 엔트리 자체 식별: `key`의 `\uf000folder:` 접두사 확인
+- 일반 엔트리의 상위 폴더 참조: `folder`에 같은 `\uf000folder:<id>` 값 저장
 
 ---
 
@@ -125,9 +134,9 @@ URI 하나만 가정하고 구현하면 포맷별 에셋 누락이 생기기 쉽
 
 ---
 
-## 10. `.charx`와 `.jpg`는 `module.risum`도 같이 봐야 한다
+## 10. 최신 `.charx`와 `.jpg`는 `module.risum`도 같이 봐야 한다
 
-최신 export 경로에서는 lorebook, regex, trigger가 카드 JSON 밖의 `module.risum`으로 분리될 수 있습니다.
+최신 export 경로에서는 lorebook, regex, trigger가 카드 JSON 밖의 `module.risum`으로 분리되어 함께 나옵니다.
 
 즉 `card.json`만 읽고 끝내면 동작이 빠진 카드가 됩니다.
 

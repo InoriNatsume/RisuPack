@@ -1,6 +1,6 @@
 # 프리셋 포맷 (.risup, .risupreset)
 
-검증 기준 RisuAI 버전: `Risuai-2026.2.291`
+검증 기준 RisuAI 버전: `RisuAI 2026.3.334`
 
 ## 1. 개요
 
@@ -134,6 +134,7 @@ interface RegexScript {
   in: string;
   out: string;
   flag?: string;
+  ableFlag?: boolean;
 }
 ```
 
@@ -196,7 +197,17 @@ interface PromptItemChat {
 }
 ```
 
-### 7.5 PromptItemCache
+### 7.5 PromptItemChatML
+
+```typescript
+interface PromptItemChatML {
+  type: "chatML";
+  text: string;
+  name?: string;
+}
+```
+
+### 7.6 PromptItemCache
 
 ```typescript
 interface PromptItemCache {

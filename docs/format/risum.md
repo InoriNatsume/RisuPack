@@ -1,6 +1,6 @@
 # 모듈 포맷 (.risum)
 
-검증 기준 RisuAI 버전: `Risuai-2026.2.291`
+검증 기준 RisuAI 버전: `RisuAI 2026.3.334`
 
 ## 1. 개요
 
@@ -86,14 +86,29 @@ interface LoreBookEntry {
   insertorder: number;
   mode: "normal" | "constant" | "folder" | "multiple" | "child";
   alwaysActive: boolean;
+  extentions?: {
+    risu_case_sensitive?: boolean;
+    [key: string]: unknown;
+  };
   activationPercent?: number;
+  loreCache?: {
+    key: string;
+    data: string[];
+  };
   useRegex?: boolean;
+  bookVersion?: number;
   id?: string;
   folder?: string;
 }
 ```
 
-폴더 참조는 카드 포맷과 동일하게 `\uf000folder:<id>` 형식을 쓸 수 있습니다.
+폴더 엔트리의 `key`와, 그 폴더에 속한 일반 엔트리의 `folder`는 카드 포맷과 동일하게 `\uf000folder:<id>` 형식을 씁니다.
+
+즉 폴더 소속 판정은 일반적으로 다음 비교로 이해하면 됩니다.
+
+```text
+entry.folder === folderEntry.key
+```
 
 ---
 
@@ -152,6 +167,7 @@ interface TriggerScript {
 
 - 헤더는 `0x6F 0x00` 고정으로 보는 편이 맞습니다.
 - 메인 블록과 자산 블록 모두 RPack을 거칩니다.
+- 로어북은 정규화된 별도 공개 스키마라기보다, 최신 `RisuAI`의 `loreBook[]`를 거의 그대로 담는 쪽에 가깝습니다.
 - trigger 구조는 문서보다 실제 코드가 더 큽니다. 세부 union을 고정 명세처럼 박아두면 금방 어긋납니다.
 
 ---
