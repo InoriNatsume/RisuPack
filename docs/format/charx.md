@@ -1,6 +1,6 @@
 # 캐릭터 카드 포맷 (.charx, .png, .jpg)
 
-검증 기준 RisuAI 버전: `RisuAI 2026.3.334`
+검증 기준 RisuAI 버전: `RisuAI 2026.4.120`
 
 ## 1. 지원 컨테이너
 

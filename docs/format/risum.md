@@ -1,6 +1,6 @@
 # 모듈 포맷 (.risum)
 
-검증 기준 RisuAI 버전: `RisuAI 2026.3.334`
+검증 기준 RisuAI 버전: `RisuAI 2026.4.120`
 
 ## 1. 개요
 

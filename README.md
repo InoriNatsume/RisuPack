@@ -48,7 +48,7 @@ npm run format
 
 ## 문서
 
-- 포맷 문서 기준 버전: `RisuAI 2026.3.334`
+- 포맷 문서 기준 버전: `RisuAI 2026.4.120`
 - [프로젝트 구조](docs/project-structure.md)
 - [작업장 구조](docs/workspace-structure.md)
 - [포맷 메모](docs/format/)

@@ -1,6 +1,6 @@
 # 프리셋 포맷 (.risup, .risupreset)
 
-검증 기준 RisuAI 버전: `RisuAI 2026.3.334`
+검증 기준 RisuAI 버전: `RisuAI 2026.4.120`
 
 ## 1. 개요
 
