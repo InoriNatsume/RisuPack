@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Keep compatibility for `.charx`, `.risum`, `.risup`, and `.risupreset`.
+- Keep compatibility for bot('.charx', '.png', '.jpg/jpeg'), `.risum`, `.risup`, and `.risupreset`.
 - Prefer repository-local TypeScript implementations over vendored upstream runtime code.
 - Preserve existing input validation and path traversal protections.
 
