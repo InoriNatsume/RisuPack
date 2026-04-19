@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import {
   formatBuildResult,
   formatCommandJson,
+  formatExtractAssetsResult,
   formatExtractResult,
   formatInspectResult
 } from "../app/presenters.js";
@@ -14,6 +15,7 @@ import {
 } from "../core/input-validation.js";
 import type {
   BuildCommandResult,
+  ExtractAssetsCommandResult,
   ExtractCommandResult,
   InspectCommandResult
 } from "../app/commands.js";
@@ -34,6 +36,15 @@ export function printBuildResult(
 
 export function printInspectResult(result: InspectCommandResult): void {
   console.log(formatInspectResult(result));
+}
+
+export function printExtractAssetsResult(
+  result: ExtractAssetsCommandResult,
+  asJson = false
+): void {
+  console.log(
+    asJson ? formatCommandJson(result) : formatExtractAssetsResult(result)
+  );
 }
 
 export function handleCliError(error: unknown): never {

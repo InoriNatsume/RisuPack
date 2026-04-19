@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { extractAssets, type ExtractAssetsResult } from "./extract-assets.js";
 import { detectInputFormat } from "../core/detect.js";
 import { assertInputMatchesDetectedFormat } from "../core/input-validation.js";
 import { inspectInput } from "../core/inspect.js";
@@ -128,5 +129,32 @@ export async function runStageWorkspaceInputCommand(
     stagedPath: staged.stagedPath,
     projectDir: staged.projectDir,
     format: staged.format
+  };
+}
+
+export interface ExtractAssetsCommandResult {
+  command: "extract-assets";
+  inputPath: string;
+  outputDir: string;
+  format: SupportedInputFormat;
+  assetCount: number;
+  manifestPath: string;
+}
+
+export async function runExtractAssetsCommand(
+  inputPath: string,
+  outputDir: string
+): Promise<ExtractAssetsCommandResult> {
+  const resolvedInputPath = resolve(inputPath);
+  const resolvedOutputDir = resolve(outputDir);
+  const result = await extractAssets(resolvedInputPath, resolvedOutputDir);
+
+  return {
+    command: "extract-assets",
+    inputPath: resolvedInputPath,
+    outputDir: resolvedOutputDir,
+    format: result.manifest.format,
+    assetCount: result.assetCount,
+    manifestPath: result.manifestPath
   };
 }

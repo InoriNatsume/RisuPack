@@ -1,5 +1,6 @@
 import type {
   BuildCommandResult,
+  ExtractAssetsCommandResult,
   ExtractCommandResult,
   InspectCommandResult
 } from "./commands.js";
@@ -30,4 +31,17 @@ export function formatInspectResult(result: InspectCommandResult): string {
 
 export function formatCommandJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+export function formatExtractAssetsResult(
+  result: ExtractAssetsCommandResult
+): string {
+  return [
+    "에셋 추출 완료",
+    `포맷: ${result.format}`,
+    `입력 파일: ${result.inputPath}`,
+    `출력 폴더: ${result.outputDir}`,
+    `추출된 에셋: ${result.assetCount}개`,
+    `매니페스트: ${result.manifestPath}`
+  ].join("\n");
 }
