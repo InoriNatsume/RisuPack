@@ -1,6 +1,6 @@
 # 캐릭터 카드 포맷 (.charx, .png, .jpg)
 
-검증 기준 RisuAI 버전: `RisuAI 2026.4.120`
+검증 기준 RisuAI 버전: `RisuAI 2026.4.180`
 
 ## 1. 지원 컨테이너
 
@@ -144,6 +144,7 @@ interface CCv3Asset {
 | `video`        | 비디오                |
 | `portrait`     | VN 초상화             |
 | `additional`   | 일반 추가 에셋        |
+| `user_icon`    | 사용자 아이콘         |
 | `other`        | 기타                  |
 | `x-risu-asset` | RisuAI 내부 에셋 타입 |
 
