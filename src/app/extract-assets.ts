@@ -6,7 +6,6 @@ import { detectInputFormat } from "../core/detect.js";
 import {
   planAssetFile,
   writeAssetFile,
-  detectAssetMediaKind,
   type AssetMediaKind
 } from "../core/assets.js";
 import { detectBotContainer } from "../formats/bot/container.js";
