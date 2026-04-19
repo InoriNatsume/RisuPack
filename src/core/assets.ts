@@ -196,7 +196,11 @@ export function sanitizeFilename(value: string): string {
 }
 
 function stripExtension(value: string): string {
-  return value.replace(/\.[^.]+$/, "");
+  const dotIndex = value.lastIndexOf(".");
+  if (dotIndex <= 0) return value;
+  const ext = value.slice(dotIndex + 1).toLowerCase();
+  if (KNOWN_EXTENSIONS.has(ext)) return value.slice(0, dotIndex);
+  return value;
 }
 
 function normalizeExtension(value?: string): string | undefined {
