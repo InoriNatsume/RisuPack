@@ -12,3 +12,4 @@ references/
 # OS / editor noise
 Thumbs.db
 Desktop.ini
+*.bun-build
