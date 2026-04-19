@@ -15,7 +15,8 @@
     "test:manifest": "npm run build && node tests/roundtrip-smoke.mjs --require-manifest",
     "test:all": "npm run build && node tests/roundtrip-smoke.mjs",
     "cli": "node dist/cli/main.js",
-    "interactive": "node dist/cli/interactive.js"
+    "interactive": "node dist/cli/interactive.js",
+    "build:exe": "bun build src/cli/main.ts --compile --outfile dist/risupack.exe --target bun-windows-x64"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
