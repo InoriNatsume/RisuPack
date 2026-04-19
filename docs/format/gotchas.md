@@ -158,3 +158,19 @@ const penalty = preset.PresensePenalty;
 - `.risupreset`은 `Deflate -> MsgPack -> AES-GCM`
 
 두 확장자를 같은 외부 래퍼로 처리하면 import가 틀어집니다.
+
+---
+
+## 13. 에셋 이름의 점(`.`)을 확장자로 오인하면 안 된다
+
+에셋 이름에 점이 포함되는 경우가 많습니다.
+
+```text
+Lisa.disappointed
+Lisa.embarrassed
+fertilization_success
+```
+
+파일명에서 확장자를 분리할 때 `.disappointed`를 확장자로 간주하면 이름이 `Lisa`로 축소되어 모든 에셋이 중복 처리됩니다.
+
+**해결:** 알려진 미디어 확장자(png, webp, jpg, mp4 등)만 제거하고, 그 외의 `.xxx`는 이름의 일부로 보존해야 합니다.
