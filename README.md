@@ -48,7 +48,7 @@ npm run format
 
 ## 문서
 
-- 포맷 문서 기준 버전: `RisuAI 2026.4.120`
+- 포맷 문서 기준 버전: `RisuAI 2026.4.180`
 - [프로젝트 구조](docs/project-structure.md)
 - [작업장 구조](docs/workspace-structure.md)
 - [포맷 메모](docs/format/)
@@ -76,6 +76,10 @@ npm run format
   - 작성자: `레니허벅지에점있어요`
   - 출처: [arca.live/b/characterai/165492320](https://arca.live/b/characterai/165492320)
   - 라이선스: `CC BY-NC-SA 4.0`
+- `Genshin Impact 1.4.png`
+  - 작성자: `COSMOS`
+  - 출처: [arca.live/b/characterai/160739213](https://arca.live/b/characterai/160739213)
+  - 라이선스: 미상
 - `tests/samples-local/캠퍼스툰 3.0.jpeg`
   - 작성자: `이삭2`
   - 출처: [arca.live/b/characterai/155896353](https://arca.live/b/characterai/155896353)
